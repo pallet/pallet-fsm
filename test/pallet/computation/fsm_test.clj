@@ -31,21 +31,37 @@
     :close (assoc state :state-kw :locked)))
 
 (deftest fsm-test
-  (let [{:keys [event state reset]}
-        (fsm {:state-kw :locked :state-data {:code "123"}}
-             {:locked locked :open open})]
-    (is (= {:status :ok :state-kw :locked :state-data {:code "123"}}
-           (state)))
-    (is (= {:status :ok :state-kw :locked
-            :state-data {:code "123" :so-far "1"}}
-           (event :button 1)))
-    (is (= {:status :ok :state-kw :locked
-            :state-data {:code "123" :so-far "12"}}
-           (event :button 2)))
-    (is (= {:status :ok :state-kw :open
-            :state-data {:code "123" :so-far nil}}
-           (event :button 3)))
-    (Thread/sleep 2000)
-    (is (= {:status :ok :state-kw :locked
-            :state-data {:code "123" :so-far nil}}
-           (state)))))
+  (testing "basic transitions"
+    (let [{:keys [event state reset]}
+          (fsm {:state-kw :locked :state-data {:code "123"}}
+               {:locked locked :open open})]
+      (is (= {:status :ok :state-kw :locked :state-data {:code "123"}}
+             (state)))
+      (is (= {:status :ok :state-kw :locked
+              :state-data {:code "123" :so-far "1"}}
+             (event :button 1)))
+      (is (= {:status :ok :state-kw :locked
+              :state-data {:code "123" :so-far "12"}}
+             (event :button 2)))
+      (is (= {:status :ok :state-kw :open
+              :state-data {:code "123" :so-far nil}}
+             (event :button 3)))
+      (testing "timeout"
+        (Thread/sleep 2000)
+        (is (= {:status :ok :state-kw :locked
+                :state-data {:code "123" :so-far nil}}
+               (state))))))
+  (testing "entry exit"
+    (let [exit-locked (atom nil)
+          enter-open (atom nil)
+          {:keys [event state reset]}
+          (fsm {:state-kw :locked :state-data {:code "1"}}
+               {:locked {:fn locked :on-exit #(reset! exit-locked true)}
+                :open {:fn open :on-enter #(reset! enter-open true)}})]
+      (is (= {:status :ok :state-kw :locked :state-data {:code "1"}}
+             (state)))
+      (is (= {:status :ok :state-kw :open
+              :state-data {:code "1" :so-far nil}}
+             (event :button 1)))
+      (is @exit-locked)
+      (is @enter-open))))
