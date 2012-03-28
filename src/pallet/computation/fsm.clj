@@ -41,6 +41,10 @@ state-map transition functions should take the current state vector, and event,
 and user data.  Functions should return the new state as a map with keys
 :status :state-kw and :state-data.
 
+:state-data should be nil or a map. The final fsm map (as returned by this
+function) will be set on the :fsm key of the the :state-data, so that state
+functions can refer to the fsm itself.
+
 If the returned state map contains a :timeout key, with a value specified as a
 map from unit to duration, then a :timeout event will be sent on elapse of the
 specified duration.
@@ -92,8 +96,10 @@ they can not (functionally) update the fsm's state-data."
                                value
                                (time-units unit))))
                 new-state))]
-      {:event fire
-       :state (fn []
-                @state)
-       :reset (fn [{:keys [status state-kw state-data] :as new-state}]
-                (reset! state new-state))})))
+      (let [machine {:event fire
+                     :state (fn [] @state)
+                     :reset (fn [{:keys [status state-kw state-data]
+                                  :as new-state}]
+                              (swap! state merge new-state))}]
+        (swap! state assoc :fsm machine)
+        machine))))
