@@ -2,6 +2,8 @@
   "A finite state machine lib"
   (:use
    [slingshot.slingshot :only [throw+]])
+  (:require
+   [clojure.tools.logging :as logging])
   (:import
    java.util.concurrent.Executors
    java.util.concurrent.TimeUnit))
@@ -43,10 +45,10 @@ If the returned state map contains a :timeout key, with a value specified as a
 map from unit to duration, then a :timeout event will be sent on elapse of the
 specified duration.
 
-:on-enter and :on-exit should map to functions of no arguments. These functions
-can be used to manage external state. We have to call them outside of a swap!
-so that they are guaranteed to be called exactly once, and therefore they can
-not update the fsm's state-data."
+:on-enter and :on-exit should map to functions of a state argument. These
+functions can be used to manage external state. We have to call them outside of
+a swap!  so that they are guaranteed to be called exactly once, and therefore
+they can not (functionally) update the fsm's state-data."
   [{:keys [status state-kw state-data] :or {status :ok}} state-map]
   (assert state-kw "Must supply initial state keyword")
   (assert (state-map state-kw) "Initial state must be in state-map")
@@ -54,13 +56,17 @@ not update the fsm's state-data."
                    (keys state-map)
                    (map (fn [v] (if (map? v) v {:fn v})) (vals state-map)))
         state (atom {:status status :state-kw state-kw :state-data state-data})]
-    (letfn [(exit-enter [old-state-kw state-kw]
+    (letfn [(exit-enter [old-state-kw state-kw state]
+              (logging/debugf "state %s -> %s" old-state-kw state-kw)
               (when (not= old-state-kw state-kw)
                 (when-let [on-exit (get-in state-map [old-state-kw :on-exit])]
-                  (on-exit))
+                  (on-exit state))
                 (when-let [on-enter (get-in state-map [state-kw :on-enter])]
-                  (on-enter))))
+                  (on-enter state))))
             (fire [event data]
+              (logging/debugf
+               "in state %s fire %s %s"
+               (:state-kw @state) event data)
               (let [old-state (atom nil)
                     timeout-atom (atom nil)
 
@@ -77,8 +83,9 @@ not update the fsm's state-data."
                          (dissoc new-state :timeout))))
 
                     old-state-kw (:state-kw @old-state)]
-                (exit-enter old-state-kw state-kw)
+                (exit-enter old-state-kw state-kw new-state)
                 (when-let [timeout @timeout-atom]
+                  (logging/debugf "fsm timeout for %s in %s" new-state timeout)
                   (let [[unit value] (first timeout)]
                     (.schedule timeout-sender
                                #(fire :timeout nil)
