@@ -118,3 +118,29 @@
              (event :button 1)))
       (is @exit-locked)
       (is @enter-open))))
+
+(deftest fsm-exec-test
+  (testing "door"
+    (let [locked-counter (atom 0)
+          open-counter (atom 0)
+          state-map {:locked {:event-fn locked-no-timeout
+                              :state-fn (fn [_] (swap! locked-counter inc))}
+                     :open {:event-fn open
+                            :state-fn (fn [_] (swap! open-counter inc))}
+                     :relock {:event-fn (fn [state _ _] state)
+                              :state-fn (fn [_])}}
+          {:keys [event state reset] :as sm}
+          (fsm {:state-kw :locked :state-data {:code "123"}}
+               state-map
+               nil)
+          fsm-exec (fsm-exec-fn state-map #{:re-locked})
+          thread (Thread. #(fsm-exec sm))]
+      (.start thread)
+      (event :button 1)
+      (event :button 2)
+      (event :button 3)
+      (event :re-lock nil)
+      (.join thread)
+      (is (= :re-locked (:state-kw (state))))
+      (is (pos? @locked-counter))
+      (is (pos? @open-counter)))))

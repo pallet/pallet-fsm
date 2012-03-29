@@ -184,3 +184,22 @@ state-data."
                                 (swap! state merge new-state))}]
           (swap! state assoc :fsm machine)
           machine)))))
+
+(defn fsm-exec-fn
+  [state-map terminal-state?]
+  (fn fsm-exec [{:keys [state] :as fsm}]
+    (loop [in-state (state)]
+      (let [{:keys [state-kw state-data]} in-state]
+        (if (terminal-state? state-kw)
+          in-state
+          (let [state-fn (get-in state-map [state-kw :state-fn])]
+            (when-not state-fn
+              (throw+
+               {:state in-state
+                :state-map state-map
+                :reason :no-state-fn}
+               "FSM %sin state %s, but no :state-fn available"
+               (when-let [fsm-name (::name state-map)] (str fsm-name " "))
+               state-kw))
+            (state-fn in-state)
+            (recur (state))))))))
