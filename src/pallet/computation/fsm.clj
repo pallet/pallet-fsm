@@ -102,11 +102,11 @@ features
   is :on-enter-exit. Additional features and their combinations may be added by
   implementing methods on `transition-fn`.
 
-Returns a map with :state!, :valid-state? and valid-transition? keys, providing
-functions to change the state, test for a valid state and test for a valid
-transition, respectively.
+Returns a map with :transition, :valid-state? and valid-transition? keys,
+providing functions to change the state, test for a valid state and test for a
+valid transition, respectively.
 
-The :state! function takes an old state and a new state, and returns the new
+The :transition function takes an old state and a new state, and returns the new
 state. An exception is thrown if the transition is invalid.
 
 The :valid-state? predicate tests a state for validity.
@@ -120,7 +120,8 @@ On enter and on exit functions
 On enter and on exit functions are enabled by the :on-enter-exit feature.
 
 The :on-enter and :on-exit keys on the state-map values should map to functions
-of a state argument. These functions can be used to manage external state."
+of a state argument. These functions can be used to manage external state, and
+will be called as appropriate by the :transition function."
   [state-map features]
   (let [state-map (zipmap
                    (keys state-map)

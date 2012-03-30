@@ -17,7 +17,7 @@
    "No event function for state"))
 
 (defn call-event-fn
-  "A function that calls the event function for the state"
+  "A function that calls the event function for the state."
   [state-map {:keys [transition] :as fsm}]
   (fn [event data]
     (transition
@@ -70,12 +70,11 @@ and user data.  Functions should return the new state as a map with keys
         ((:reset fsm) (assoc ((:state fsm)) :fsm fsm :em machine))
         machine))))
 
-
-
-
 (defn poll-event-machine-fn
+  "Returns a function to run the state-map's :state-fn's once against the
+current state of an event-machine."
   [state-map terminal-state?]
-  (fn fsm-state-exec [{:keys [state] :as fsm}]
+  (fn poll-event-machine [{:keys [state] :as event-machine}]
     (let [{:keys [state-kw state-data] :as in-state} (state)]
       (if (terminal-state? state-kw)
         in-state
@@ -85,15 +84,17 @@ and user data.  Functions should return the new state as a map with keys
              {:state in-state
               :state-map state-map
               :reason :no-state-fn}
-             "FSM %sin state %s, but no :state-fn available"
-             (when-let [fsm-name (::name state-map)] (str fsm-name " "))
+             "EM %sin state %s, but no :state-fn available"
+             (when-let [em-name (::name state-map)] (str em-name " "))
              state-kw))
           (state-fn in-state)
           nil)))))
 
 (defn event-machine-loop-fn
+  "Returns a function to continuously run the state-map's :state-fn's against
+the current state of an event-machine, until a terminal-state is reached."
   [state-map terminal-state?]
-  (fn fsm-exec [{:keys [state] :as fsm}]
+  (fn event-machine-loop [{:keys [state] :as event-machine}]
     (loop [in-state (state)]
       (let [{:keys [state-kw state-data]} in-state]
         (if (terminal-state? state-kw)
@@ -104,8 +105,8 @@ and user data.  Functions should return the new state as a map with keys
                {:state in-state
                 :state-map state-map
                 :reason :no-state-fn}
-               "FSM %sin state %s, but no :state-fn available"
-               (when-let [fsm-name (::name state-map)] (str fsm-name " "))
+               "EM %sin state %s, but no :state-fn available"
+               (when-let [em-name (::name state-map)] (str em-name " "))
                state-kw))
             (state-fn in-state)
             (recur (state))))))))
