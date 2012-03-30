@@ -3,154 +3,116 @@
   (:use
    [slingshot.slingshot :only [throw+]])
   (:require
-   [clojure.tools.logging :as logging])
-  (:import
-   java.util.concurrent.Executors
-   java.util.concurrent.TimeUnit))
-
-(defonce timeout-sender (Executors/newSingleThreadScheduledExecutor))
-
-(def time-units
-  {:days TimeUnit/DAYS
-   :hours TimeUnit/HOURS
-   :us TimeUnit/MICROSECONDS
-   :ms TimeUnit/MILLISECONDS
-   :mins TimeUnit/MINUTES
-   :ns TimeUnit/NANOSECONDS
-   :s TimeUnit/SECONDS})
-
-(defn- fsm-invalid-state
-  [state event event-data]
-  (throw+
-   {:state state
-    :event event
-    :event-data event-data}
-   "Invalid state"))
-
-;;; ## utilities
-
-;; this belongs in some util lib
-(defn swap!!
-  "Like swap!, but returns a vector of old and new value"
-  [atom f & args]
-  {:pre [(instance? clojure.lang.Atom atom)]}
-  (let [old-val (clojure.core/atom nil)
-        new-val (swap! atom (fn [s]
-                           (reset! old-val s)
-                           (apply f s args)))]
-    [@old-val new-val]))
-
+   [clojure.tools.logging :as logging]))
 
 ;;; ## Implementation functions
-(defn exit-enter
-  "A function that calls on-exit and on-enter if a state has changed."
-  [old-state-kw {:keys [state-kw] :as state} state-map]
-  (logging/debugf "state %s -> %s" old-state-kw state-kw)
-  (when (not= old-state-kw state-kw)
-    (when-let [on-exit (get-in state-map [old-state-kw :on-exit])]
-      (on-exit state))
-    (when-let [on-enter (get-in state-map [state-kw :on-enter])]
-      (on-enter state))))
-
-(defn call-event-fn
-  "A function that calls the event function for the state"
+(defn valid-state?-fn
   [state-map]
-  (fn [state event data]
-    ((get-in state-map [(:state-kw state) :event-fn] fsm-invalid-state)
-     state event data)))
+  (fn valid-state? [state]
+    (not= ::nil (get state-map state ::nil))))
 
-(defn schedule-timeout
-  [state timeout event-fn]
-  (when timeout
-    (logging/debugf "fsm timeout for %s in %s" (:state-kw @state) timeout)
-    (let [[unit value] (first timeout)]
-      (.schedule
-       timeout-sender #(event-fn state :timeout nil) value (time-units unit)))))
+(defn valid-transition?-fn
+  [state-map]
+  (fn [from-state to-state]
+    (let [v? (get-in state-map [from-state :transitions])]
+      (and v? (v? to-state)))))
 
-;;; ## Event functions
-(defmulti fire-event-fn
-  "Return a function for firing events, given a set of features to support.
+(defn validate-state
+  [state-map]
+  (fn
+    [state]
+    (when (= ::nil (get state-map state ::nil))
+      (throw+
+       {:reason :invalid-state
+        :state state
+        :state-map state-map}
+       "Invalid state %s" state state-map))))
+
+(defn validate-transition
+  [state-map]
+  (fn [from-state to-state]
+    (let [v? (get-in state-map [from-state :transitions])]
+      (when (or (nil? v?)
+                (not (v? to-state)))
+        (throw+
+         {:reason :invalid-transition
+          :from-state from-state
+          :to-state to-state
+          :state-map state-map}
+         "Invalid transition from %s to %s for %s"
+         from-state to-state state-map)))))
+
+(defn transition-to-state-fn
+  "Return a function that transitions to a new state"
+  [state-map]
+  (let [validate-state (validate-state state-map)
+        validate-transition (validate-transition state-map)]
+    (fn transition-to-state [old-state new-state]
+      (validate-state old-state)
+      (validate-transition old-state new-state)
+      new-state)))
+
+(defn exit-enter-fn
+  "A function that calls on-exit and on-enter if a state has changed."
+  [state-map]
+  (fn exit-enter
+    [old-state new-state]
+    (logging/debugf "state %s -> %s" old-state new-state)
+    (when (not= old-state new-state)
+      (when-let [on-exit (get-in state-map [old-state :on-exit])]
+        (on-exit old-state))
+      (when-let [on-enter (get-in state-map [new-state :on-enter])]
+        (on-enter new-state)))))
+
+;;; ## Transition functions
+
+;; TODO add an :observable
+
+(defmulti transition-fn
+  "Return a function for making transitions, given a set of features to support.
    This multi-method allows other features to be added in an open fashion."
   (fn [features state-map] features))
 
-(defmethod fire-event-fn #{}
+(defmethod transition-fn #{}
   [_ state-map]
-  (let [call-event (call-event-fn state-map)]
-    (fn fire-event [state event data]
-      (swap! state (fn [state] (call-event state event data))))))
+  (transition-to-state-fn state-map))
 
-(defmethod fire-event-fn #{:on-enter-exit}
+(defmethod transition-fn #{:on-enter-exit}
   [_ state-map]
-  (let [call-event (call-event-fn state-map)]
-    (fn fire-event [state event data]
-      (let [[old-state new-state]
-            (swap!! state (fn [state] (call-event state event data)))]
-        (exit-enter (:state-kw old-state) new-state state-map)
-        new-state))))
-
-(defmethod fire-event-fn #{:timeout}
-  [_ state-map]
-  (let [call-event (call-event-fn state-map)]
-    (fn fire-event [state event data]
-      (let [timeout-atom (atom nil)
-            new-state (swap!
-                       state
-                       (fn [state]
-                         (let [new-state (call-event state event data)]
-                           (reset! timeout-atom (:timeout new-state))
-                           (dissoc new-state :timeout))))]
-        (schedule-timeout state @timeout-atom fire-event)
-        new-state))))
-
-(defmethod fire-event-fn #{:on-enter-exit :timeout}
-  [_ state-map]
-  (let [call-event (call-event-fn state-map)]
-    (fn fire-event [state event data]
-      (let [timeout-atom (atom nil)
-            [old-state {:keys [state-kw] :as new-state}]
-            (swap!! state (fn [state]
-                            (let [new-state (call-event state event data)]
-                              (reset! timeout-atom (:timeout new-state))
-                              (dissoc new-state :timeout))))]
-        (exit-enter (:state-kw old-state) new-state state-map)
-        (schedule-timeout state @timeout-atom fire-event)
-        new-state))))
+  (let [transition-to-state (transition-to-state-fn state-map)
+        exit-enter (exit-enter-fn state-map)]
+    (fn transition [old-state new-state]
+      (transition-to-state old-state new-state)
+      (exit-enter old-state new-state)
+      new-state)))
 
 ;;; ## FSM constructor
-(defn fsm
-  "Returns a Finite State Machine.
 
-state
-: a map of initial state
+(defn fsm
+  "Returns a Finite State Machine where the current state is managed by the
+user.
 
 state-map
-: a map from state key to an event transition function or to a map with
-  an :event-fn key. Other keys on the state-map values are used by features.
+: a map from state key to a set of valid transition states, or to a map with
+  a :transitions key with a set of valid tranisition keys, and any keys required
+  by the features in use.
 
 features
-: a set of features that the FSM should support. Provided features are :timeout
-  and :on-enter-exit. Additional features and their combinations may be
-  added by implementing methods on `fire-event-fn`.
+: a set of features that the FSM should support. The sole provided feature
+  is :on-enter-exit. Additional features and their combinations may be added by
+  implementing methods on `transition-fn`.
 
-Returns a map with :event, :state and :reset keys, providing functions to send
-an event, query the state and reset the state, respectively.
+Returns a map with :state!, :valid-state? and valid-transition? keys, providing
+functions to change the state, test for a valid state and test for a valid
+transition, respectively.
 
-state-map transition functions should take the current state vector, and event,
-and user data.  Functions should return the new state as a map with keys
-:status :state-kw and :state-data.
+The :state! function takes an old state and a new state, and returns the new
+state. An exception is thrown if the transition is invalid.
 
-The :state-data value should be nil or a map. The final fsm map (as returned by
-this function) will be set on the :fsm key of the the state, so that state
-functions can refer to the fsm itself.
+The :valid-state? predicate tests a state for validity.
 
-Timeouts
---------
-
-Timeouts are enabled by the :timeout feature.
-
-If the state map returned by an event function contains a :timeout key, with a
-value specified as a map from unit to duration, then a :timeout event will be
-sent on elapse of the specified duration.
+The :valid-transition? predicate tests an old state, new state pair for
+validity.
 
 On enter and on exit functions
 ------------------------------
@@ -158,48 +120,14 @@ On enter and on exit functions
 On enter and on exit functions are enabled by the :on-enter-exit feature.
 
 The :on-enter and :on-exit keys on the state-map values should map to functions
-of a state argument. These functions can be used to manage external state. We
-have to call them outside of a swap!  so that they are guaranteed to be called
-exactly once, and therefore they can not (functionally) update the fsm's
-state-data."
-  [{:keys [status state-kw state-data] :or {status :ok}} state-map features]
-  (assert state-kw "Must supply initial state keyword")
-  (assert (state-map state-kw) "Initial state must be in state-map")
+of a state argument. These functions can be used to manage external state."
+  [state-map features]
   (let [state-map (zipmap
                    (keys state-map)
                    (map
-                    (fn [v] (if (map? v) v {:event-fn v}))
-                    (vals state-map)))
-        state (atom {:status status :state-kw state-kw :state-data state-data})]
-    (let [fire-event (fire-event-fn (set features) state-map)]
-      (letfn [(fire [event data]
-                (logging/debugf
-                 "in state %s fire %s %s"
-                 (:state-kw @state) event data)
-                (fire-event state event data))]
-        (let [machine {:event fire
-                       :state (fn [] @state)
-                       :reset (fn [{:keys [status state-kw state-data]
-                                    :as new-state}]
-                                (swap! state merge new-state))}]
-          (swap! state assoc :fsm machine)
-          machine)))))
-
-(defn fsm-exec-fn
-  [state-map terminal-state?]
-  (fn fsm-exec [{:keys [state] :as fsm}]
-    (loop [in-state (state)]
-      (let [{:keys [state-kw state-data]} in-state]
-        (if (terminal-state? state-kw)
-          in-state
-          (let [state-fn (get-in state-map [state-kw :state-fn])]
-            (when-not state-fn
-              (throw+
-               {:state in-state
-                :state-map state-map
-                :reason :no-state-fn}
-               "FSM %sin state %s, but no :state-fn available"
-               (when-let [fsm-name (::name state-map)] (str fsm-name " "))
-               state-kw))
-            (state-fn in-state)
-            (recur (state))))))))
+                    (fn normalise-map [v] (if (map? v) v {:transitions v}))
+                    (vals state-map)))]
+    {:transition (transition-fn (set features) state-map)
+     :valid-state? (valid-state?-fn state-map)
+     :valid-transition? (valid-transition?-fn state-map)
+     ::features features}))
