@@ -130,14 +130,20 @@ Timeouts are enabled by the :timeout feature.
 If the state map returned by an event function contains a :timeout key, with a
 value specified as a map from unit to duration, then a :timeout event will be
 sent on elapse of the specified duration."
-  [{:keys [state-kw state-data] :as state} state-map features]
-  (let [fsm (fsm state-map (disj (set features) :timeout))
-        state (atom state)]
-    {:transition (transition-fn
-                  (disj (set features) :on-enter-exit) state-map state fsm)
-     :valid-state? (valid-state?-fn fsm)
-     :valid-transition? (valid-transition?-fn fsm state)
-     :state (fn [] (dissoc @state :timeout-f))
-     :reset (fn [{:keys [status state-kw state-data]
-                  :as new-state}]
-              (swap! state merge new-state))}))
+  ([{:keys [state-kw state-data] :as state} state-map features]
+     (let [fsm (fsm state-map (disj (set features) :timeout))
+           state (atom state)]
+       {:transition (transition-fn
+                     (disj (set features) :on-enter-exit) state-map state fsm)
+        :valid-state? (valid-state?-fn fsm)
+        :valid-transition? (valid-transition?-fn fsm state)
+        :state (fn [] (dissoc @state :timeout-f))
+        :reset (fn [{:keys [status state-kw state-data]
+                     :as new-state}]
+                 (swap! state merge new-state))}))
+  ([config]
+     (stateful-fsm
+      (:fsm/inital-state config)
+      (dissoc config
+              :fsm/fsm-features :fsm/event-machine-features :fsm/inital-state)
+      (:fsm/fsm-features config))))

@@ -122,13 +122,18 @@ On enter and on exit functions are enabled by the :on-enter-exit feature.
 The :on-enter and :on-exit keys on the state-map values should map to functions
 of a state argument. These functions can be used to manage external state, and
 will be called as appropriate by the :transition function."
-  [state-map features]
-  (let [state-map (zipmap
-                   (keys state-map)
-                   (map
-                    (fn normalise-map [v] (if (map? v) v {:transitions v}))
-                    (vals state-map)))]
-    {:transition (transition-fn (set features) state-map)
-     :valid-state? (valid-state?-fn state-map)
-     :valid-transition? (valid-transition?-fn state-map)
-     ::features features}))
+  ([state-map features]
+     (let [state-map (zipmap
+                      (keys state-map)
+                      (map
+                       (fn normalise-map [v] (if (map? v) v {:transitions v}))
+                       (vals state-map)))]
+       {:transition (transition-fn (set features) state-map)
+        :valid-state? (valid-state?-fn state-map)
+        :valid-transition? (valid-transition?-fn state-map)
+        ::features features}))
+  ([config]
+     (fsm
+      (dissoc config
+              :fsm/fsm-features :fsm/event-machine-features :fsm/inital-state)
+      (:fsm/fsm-features config))))

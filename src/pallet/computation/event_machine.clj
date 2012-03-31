@@ -2,7 +2,7 @@
   "An event machine dispatches events to updates in an underlying finite state
   machine."
   (:use
-   [pallet.computation.fsm :only [fsm]]
+   [pallet.computation.stateful-fsm :only [stateful-fsm]]
    [slingshot.slingshot :only [throw+]])
   (:require
    [clojure.tools.logging :as logging]))
@@ -56,19 +56,25 @@ an event, query the state and reset the state, respectively.
 state-map transition functions should take the current state vector, and event,
 and user data.  Functions should return the new state as a map with keys
 :status :state-kw and :state-data."
-  [fsm state-map features]
-  (let [state-map (zipmap
-                   (keys state-map)
-                   (map
-                    (fn [v] (if (map? v) v {:event-fn v}))
-                    (vals state-map)))]
-    (let [fire (fire-event-fn (set features) state-map fsm)]
-      (let [machine (merge
-                     (select-keys
-                      fsm [:state :reset :valid-state? :valid-transition?])
-                     {:event fire})]
-        ((:reset fsm) (assoc ((:state fsm)) :fsm fsm :em machine))
-        machine))))
+  ([fsm state-map features]
+     (let [state-map (zipmap
+                      (keys state-map)
+                      (map
+                       (fn [v] (if (map? v) v {:event-fn v}))
+                       (vals state-map)))]
+       (let [fire (fire-event-fn (set features) state-map fsm)]
+         (let [machine (merge
+                        (select-keys
+                         fsm [:state :reset :valid-state? :valid-transition?])
+                        {:event fire})]
+           ((:reset fsm) (assoc ((:state fsm)) :fsm fsm :em machine))
+           machine))))
+  ([config]
+     (event-machine
+      (stateful-fsm config)
+      (dissoc config
+              :fsm/fsm-features :fsm/event-machine-features :fsm/inital-state)
+      (:fsm/event-machine-features config))))
 
 (defn poll-event-machine-fn
   "Returns a function to run the state-map's :state-fn's once against the
