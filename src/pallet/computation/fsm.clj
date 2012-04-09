@@ -6,16 +6,22 @@
    [clojure.tools.logging :as logging]))
 
 ;;; ## Implementation functions
+(defn state-identity
+  [state-map]
+  (:fsm/fsm-state-identity state-map identity))
+
 (defn valid-state?-fn
   [state-map]
-  (fn valid-state? [state]
-    (not= ::nil (get state-map state ::nil))))
+  (let [state-identity (state-identity state-map)]
+    (fn valid-state? [state]
+      (not= ::nil (get state-map (state-identity state) ::nil)))))
 
 (defn valid-transition?-fn
   [state-map]
-  (fn [from-state to-state]
-    (let [v? (get-in state-map [from-state :transitions])]
-      (and v? (v? to-state)))))
+  (let [state-identity (state-identity state-map)]
+    (fn [from-state to-state]
+      (let [v? (get-in state-map [(state-identity from-state) :transitions])]
+        (and v? (v? (state-identity to-state)))))))
 
 (defn validate-state
   [state-map]
@@ -46,23 +52,28 @@
   "Return a function that transitions to a new state"
   [state-map]
   (let [validate-state (validate-state state-map)
-        validate-transition (validate-transition state-map)]
+        validate-transition (validate-transition state-map)
+        state-identity (state-identity state-map)]
     (fn transition-to-state [old-state new-state]
-      (validate-state old-state)
-      (validate-transition old-state new-state)
+      (validate-state (state-identity old-state))
+      (validate-transition
+       (state-identity old-state) (state-identity new-state))
       new-state)))
 
 (defn exit-enter-fn
   "A function that calls on-exit and on-enter if a state has changed."
   [state-map]
-  (fn exit-enter
-    [old-state new-state]
-    (logging/debugf "state %s -> %s" old-state new-state)
-    (when (not= old-state new-state)
-      (when-let [on-exit (get-in state-map [old-state :on-exit])]
-        (on-exit old-state))
-      (when-let [on-enter (get-in state-map [new-state :on-enter])]
-        (on-enter new-state)))))
+  (let [state-identity (state-identity state-map)]
+    (fn exit-enter
+      [old-state new-state]
+      (let [old-state-id (state-identity old-state)
+            new-state-id (state-identity new-state)]
+        (logging/debugf "state %s -> %s" old-state new-state)
+        (when (not= old-state-id new-state-id)
+          (when-let [on-exit (get-in state-map [old-state-id :on-exit])]
+            (on-exit old-state))
+          (when-let [on-enter (get-in state-map [new-state-id :on-enter])]
+            (on-enter new-state)))))))
 
 ;;; ## Transition functions
 
@@ -123,15 +134,19 @@ The :on-enter and :on-exit keys on the state-map values should map to functions
 of a state argument. These functions can be used to manage external state, and
 will be called as appropriate by the :transition function."
   ([state-map features]
-     (let [state-map (zipmap
-                      (keys state-map)
-                      (map
-                       (fn normalise-map [v] (if (map? v) v {:transitions v}))
-                       (vals state-map)))]
+     (let [state-map
+           (into {} (map
+                     (fn [[k v :as entry]]
+                       (cond
+                         (and (keyword? k) (= "fsm" (namespace k))) entry
+                         (map? v) entry
+                         :else [k {:transitions v}]))
+                     state-map))]
        {:transition (transition-fn (set features) state-map)
         :valid-state? (valid-state?-fn state-map)
         :valid-transition? (valid-transition?-fn state-map)
-        ::features features}))
+        ::features features
+        :state-identity (state-identity state-map)}))
   ([config]
      (fsm
       (dissoc config

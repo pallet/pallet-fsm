@@ -50,7 +50,7 @@
   {:indent 1}
   [state & body]
   `(fn [c#]
-     [nil (assoc c# ~state (second ((chain-s ~@body) {})))]))
+     [nil (assoc c# ~state (when-let [f# (chain-s ~@body)] (second (f# {}))))]))
 
 (defn valid-transitions
   [& states]

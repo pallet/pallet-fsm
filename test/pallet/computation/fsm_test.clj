@@ -41,4 +41,33 @@
       (is (= :open (transition :locked :open)))
       (is @exit-locked ":on-exit called")
       (is @enter-open ":on-enter called")
-      (is (= :locked (transition :open :locked))))))
+      (is (= :locked (transition :open :locked)))))
+
+  (testing "on-entry on-exit with identity"
+    (let [exit-locked (atom nil)
+          enter-open (atom nil)
+          {:keys [transition valid-state? valid-transition?] :as sm}
+          (fsm {:fsm/fsm-state-identity :state-kw
+                :locked {:transitions #{:open}
+                         :on-exit (fn [_] (reset! exit-locked true))}
+                :open {:transitions #{:locked}
+                       :on-enter (fn [_] (reset! enter-open true))}}
+               #{:on-enter-exit})]
+
+      (is (valid-state? {:state-kw :locked}) "recognises valid states")
+      (is (valid-state? {:state-kw :open}) "recognises valid states")
+      (is (not (valid-state? {:state-kw :broken})) "recognises invalid states")
+
+      (is (valid-transition? {:state-kw :locked} {:state-kw :open})
+          "recognises valid transitions")
+      (is (valid-transition? {:state-kw :open} {:state-kw :locked})
+          "recognises valid transitions")
+      (is (not (valid-transition? {:state-kw :open} {:state-kw :open}))
+          "recognises invalid transitions")
+
+      (is (= {:state-kw :open}
+             (transition {:state-kw :locked} {:state-kw :open})))
+      (is @exit-locked ":on-exit called")
+      (is @enter-open ":on-enter called")
+      (is (= {:state-kw :locked}
+             (transition {:state-kw :open} {:state-kw :locked}))))))

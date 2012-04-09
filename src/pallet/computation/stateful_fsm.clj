@@ -62,7 +62,7 @@
             (swap!!
              state
              (fn [state] (-> state new-state-fn state-updater)))]
-        (transition (:state-kw old-state) (:state-kw new-state))
+        (transition old-state new-state)
         new-state))))
 
 (defmethod transition-fn #{:timeout}
@@ -131,7 +131,9 @@ If the state map returned by an event function contains a :timeout key, with a
 value specified as a map from unit to duration, then a :timeout event will be
 sent on elapse of the specified duration."
   ([{:keys [state-kw state-data] :as state} state-map features]
-     (let [fsm (fsm state-map (disj (set features) :timeout))
+     (let [fsm (fsm
+                (assoc state-map :fsm/fsm-state-identity :state-kw)
+                (disj (set features) :timeout))
            state (atom state)]
        {:transition (transition-fn
                      (disj (set features) :on-enter-exit) state-map state fsm)
