@@ -10,7 +10,7 @@
    java.util.concurrent.Executors
    java.util.concurrent.TimeUnit))
 
-(defonce timeout-sender (Executors/newScheduledThreadPool 1))
+(defonce timeout-sender (Executors/newScheduledThreadPool 3))
 
 (def time-units
   {:days TimeUnit/DAYS
@@ -30,7 +30,7 @@
   [fsm state]
   (let [v-t? (:valid-transition? fsm)]
     (fn [to-state]
-      (v-t? (:state-kw @state) to-state))))
+      (v-t? @state to-state))))
 
 (defn schedule-timeout
   [state timeout transition-fn]
@@ -90,7 +90,7 @@
                          (assoc :timeout-f new-timeout)
                          (dissoc :timeout)))
                    new-state))))]
-        (transition (:state-kw old-state) (:state-kw new-state))
+        (transition old-state new-state)
         (schedule-timeout
          new-state @timeout-spec
          (transition-fn features state-map state fsm ))

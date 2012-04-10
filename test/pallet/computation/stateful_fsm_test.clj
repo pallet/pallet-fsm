@@ -11,12 +11,14 @@
                         nil)
           fsm (:fsm (state))]
 
-      (is (valid-state? :locked) "recognises valid states")
-      (is (valid-state? :open) "recognises valid states")
+      (is (valid-state? {:state-kw :locked}) "recognises valid states")
+      (is (valid-state? {:state-kw :open}) "recognises valid states")
       (is (not (valid-state? :broken)) "recognises invalid states")
 
-      (is (valid-transition? :open) "recognises valid transitions")
-      (is (valid-transition? :locked) "recognises valid transitions")
+      (is (valid-transition? {:state-kw :open})
+          "recognises valid transitions")
+      (is (valid-transition? {:state-kw :locked})
+          "recognises valid transitions")
       (is (not (valid-transition? :broken)) "recognises invalid transitions")
 
       (is (= {:state-kw :locked
