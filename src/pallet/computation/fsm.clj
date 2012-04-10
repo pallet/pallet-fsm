@@ -63,12 +63,16 @@
 (defn exit-enter-fn
   "A function that calls on-exit and on-enter if a state has changed."
   [state-map]
-  (let [state-identity (state-identity state-map)]
+  (let [state-identity (state-identity state-map)
+        fsm-name (if-let [n (:fsm/name state-map)] (str n " ") "")]
     (fn exit-enter
       [old-state new-state]
       (let [old-state-id (state-identity old-state)
             new-state-id (state-identity new-state)]
-        (logging/debugf "state %s -> %s" old-state new-state)
+        (logging/debugf
+         "%s - state %s -> %s"
+         fsm-name
+         (state-identity old-state) (state-identity new-state))
         (when (not= old-state-id new-state-id)
           (when-let [on-exit (get-in state-map [old-state-id :on-exit])]
             (on-exit old-state))

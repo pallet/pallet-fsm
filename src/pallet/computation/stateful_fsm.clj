@@ -70,7 +70,8 @@
    state-map
    state
    {:keys [transition valid-transition?] :as fsm}]
-  (let [state-updater (:fsm/state-updater state-map identity)]
+  (let [state-updater (:fsm/state-updater state-map identity)
+        fsm-name (if-let [n (:fsm/name state-map)] (str n " ") "")]
     (fn [new-state-fn]
       (let [new-timeout (atom nil)
             timeout-spec (atom nil)
@@ -80,9 +81,14 @@
              (fn [state]
                (let [{:keys [timeout] :as new-state}
                      (-> (dissoc state :timeout-f) new-state-fn state-updater)]
+                 (logging/debugf
+                  "%s - timeout-f %s %s"
+                  fsm-name (:timeout-f state)
+                  (and (:timeout-f state) @(:timeout-f state)))
                  (when-let [old-timeout (and (:timeout-f state)
                                              @(:timeout-f state))]
-                   (.cancel old-timeout))
+                   (logging/debugf "%s - canceling timeout" fsm-name)
+                   (future-cancel old-timeout))
                  (if timeout
                    (do
                      (reset! timeout-spec timeout)
@@ -90,11 +96,15 @@
                          (assoc :timeout-f new-timeout)
                          (dissoc :timeout)))
                    new-state))))]
+        (logging/debugf
+         "%s - transition with timeout %s" fsm-name @timeout-spec)
         (transition old-state new-state)
-        (schedule-timeout
-         new-state @timeout-spec
-         (transition-fn features state-map state fsm ))
-        (dissoc new-state :timeout-f)))))
+        (reset! new-timeout
+                (schedule-timeout
+                 new-state @timeout-spec
+                 (transition-fn features state-map state fsm )))
+        ;; (dissoc new-state :timeout-f)
+        ))))
 
 (defn stateful-fsm
   "Returns a Finite State Machine where the state of the machine is managed.

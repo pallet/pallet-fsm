@@ -22,7 +22,8 @@
   (fn [event data]
     (transition
      #(do
-        (logging/debugf "in state %s fire %s %s" (:state-kw %) event data)
+        (logging/debugf "in state %s fire %s" (:state-kw %) event)
+        (logging/tracef "in state %s event data %s" (:state-kw %) data)
         ((get-in state-map [(:state-kw %) :event-fn] fsm-invalid-state)
          % event data)))))
 
@@ -65,7 +66,9 @@ and user data.  Functions should return the new state as a map with keys
        (let [fire (fire-event-fn (set features) state-map fsm)]
          (let [machine (merge
                         (select-keys
-                         fsm [:state :reset :valid-state? :valid-transition?])
+                         fsm
+                         [:reset :state :transition
+                          :valid-state? :valid-transition?])
                         {:event fire})]
            ((:reset fsm) (assoc ((:state fsm)) :fsm fsm :em machine))
            machine))))

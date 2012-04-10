@@ -36,6 +36,11 @@
   (fn [c]
     [nil (assoc-in c [:fsm/inital-state :state-data] state-data)]))
 
+(defn fsm-name
+  [fsm-name]
+  (fn [c]
+    [nil (assoc-in c [:fsm/name] fsm-name)]))
+
 (defn using-fsm-features
   [& features]
   (fn [c]
