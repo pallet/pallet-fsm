@@ -128,3 +128,9 @@
 (defmacro fsm-config
   [& body]
   `(second ((chain-s ~@body verify-fsm-config) {})))
+
+;;; ## FSM configuration inspection
+
+(defn configured-states
+  [fsm-config]
+  (remove #(= "fsm" (namespace %)) (keys fsm-config)))
