@@ -116,3 +116,10 @@ the current state of an event-machine, until a terminal-state is reached."
                state-kw))
             (state-fn in-state)
             (recur (state))))))))
+
+;;; ## Convenience
+(defn update-state
+  "Convenience update function."
+  [state state-kw f & args]
+  (-> (apply update-in state [:state-data] f args)
+      (assoc :state-kw state-kw)))
