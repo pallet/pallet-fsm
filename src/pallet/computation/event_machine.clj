@@ -19,13 +19,14 @@
 (defn call-event-fn
   "A function that calls the event function for the state."
   [state-map {:keys [transition] :as fsm}]
-  (fn [event data]
-    (transition
-     #(do
-        (logging/debugf "in state %s fire %s" (:state-kw %) event)
-        (logging/tracef "in state %s event data %s" (:state-kw %) data)
-        ((get-in state-map [(:state-kw %) :event-fn] fsm-invalid-state)
-         % event data)))))
+  (let [fsm-name (if-let [n (:fsm/name state-map)] (str n " - ") "")]
+    (fn [event data]
+      (transition
+       #(do
+          (logging/debugf "%sin state %s fire %s" fsm-name (:state-kw %) event)
+          (logging/tracef "in state %s event data %s" (:state-kw %) data)
+          ((get-in state-map [(:state-kw %) :event-fn] fsm-invalid-state)
+           % event data))))))
 
 ;;; ## Event functions
 (defmulti fire-event-fn
@@ -58,11 +59,14 @@ state-map transition functions should take the current state vector, and event,
 and user data.  Functions should return the new state as a map with keys
 :status :state-kw and :state-data."
   ([fsm state-map features]
-     (let [state-map (zipmap
-                      (keys state-map)
-                      (map
-                       (fn [v] (if (map? v) v {:event-fn v}))
-                       (vals state-map)))]
+     (let [state-map (into {}
+                           (map
+                            (fn [[k v :as entry]]
+                              (cond
+                                (and (keyword? k) (= "fsm" (namespace k))) entry
+                                (map? v) entry
+                                :else [k {:event-fn v}]))
+                            state-map))]
        (let [fire (fire-event-fn (set features) state-map fsm)]
          (let [machine (merge
                         (select-keys

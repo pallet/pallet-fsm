@@ -70,4 +70,28 @@
       (is @exit-locked ":on-exit called")
       (is @enter-open ":on-enter called")
       (is (= {:state-kw :locked}
-             (transition {:state-kw :open} {:state-kw :locked}))))))
+             (transition {:state-kw :open} {:state-kw :locked})))))
+
+  (testing "with transition logger"
+    (let [{:keys [transition valid-state? valid-transition?] :as sm}
+          (fsm {:locked {:transitions #{:open}}
+                :open {:transitions #{:locked}}}
+               #{(with-transition-logger :trace)})]
+      (is (= :open (transition :locked :open)))
+      (is (= :locked (transition :open :locked)))))
+  (testing "with transition identity logger"
+    (let [{:keys [transition valid-state? valid-transition?] :as sm}
+          (fsm {:fsm/name "fred"
+                :locked {:transitions #{:open}}
+                :open {:transitions #{:locked}}}
+               #{(with-transition-identity-logger :trace)})]
+      (is (= :open (transition :locked :open)))
+      (is (= :locked (transition :open :locked)))))
+  (testing "with transition observer"
+    (let [{:keys [transition valid-state? valid-transition?] :as sm}
+          (fsm {:fsm/name "fred"
+                :locked {:transitions #{:open}}
+                :open {:transitions #{:locked}}}
+               #{(with-transition-observer (fn [old-state new-state]))})]
+      (is (= :open (transition :locked :open)))
+      (is (= :locked (transition :open :locked))))))

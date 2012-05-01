@@ -8,6 +8,7 @@
     (let [{:keys [transition state reset valid-state? valid-transition?] :as sm}
           (stateful-fsm {:state-kw :locked :state-data {:code "123"}}
                         {:locked #{:open :locked} :open #{:locked}}
+                        nil
                         nil)
           fsm (:fsm (state))]
 
@@ -23,7 +24,7 @@
 
       (is (= {:state-kw :locked
               :state-data {:code "123"}}
-              (state)))
+             (state)))
       (is (= {:state-kw :locked
               :state-data {:so-far "1"}}
              (transition
@@ -37,7 +38,8 @@
     (let [{:keys [transition state reset] :as sm}
           (stateful-fsm {:state-kw :locked :state-data {:code "123"}}
                         {:locked #{:open :timed-out} :open #{:locked}}
-                        #{:timeout})]
+                        nil
+                        [:timeout])]
       (is (= {:state-kw :locked
               :state-data {:code "123"}}
              (state)))
@@ -63,7 +65,8 @@
                                   :on-exit (fn [_] (reset! exit-locked true))}
                          :open {:transitions #{:locked}
                                 :on-enter (fn [_] (reset! enter-open true))}}
-                        #{:on-enter-exit})]
+                        [:on-enter-exit]
+                        nil)]
       (is (= {:state-kw :locked :state-data {:code "1"}}
              (state)))
       (is (= {:state-kw :open
@@ -71,4 +74,19 @@
              (transition
               #(assoc % :state-kw :open :state-data {:so-far nil}))))
       (is @exit-locked)
-      (is @enter-open))))
+      (is @enter-open)))
+
+  (testing "history"
+    (let [{:keys [transition state reset] :as sm}
+          (stateful-fsm {:state-kw :locked :state-data {:code "1"}}
+                        {:locked {:transitions #{:locked :open}}
+                         :open {:transitions #{:locked}}}
+                        nil
+                        [:history])]
+      (is (= {:state-kw :locked :state-data {:code "1"}}
+             (state)))
+      (is (= {:state-kw :open
+              :state-data {:so-far nil}
+              :history [{:state-kw :locked :state-data {:code "1"}}]}
+             (transition
+              #(assoc % :state-kw :open :state-data {:so-far nil})))))))

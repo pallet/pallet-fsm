@@ -10,7 +10,8 @@
    java.util.concurrent.Executors
    java.util.concurrent.TimeUnit))
 
-(defonce timeout-sender (Executors/newScheduledThreadPool 3))
+(defonce ^{:defonce true} timeout-sender
+  (Executors/newScheduledThreadPool 3))
 
 (def time-units
   {:days TimeUnit/DAYS
@@ -39,72 +40,90 @@
     (let [[unit value] (first timeout)]
       (.schedule
        timeout-sender
-       (fn [] (transition-fn #(assoc % :state-kw :timed-out)))
+       (partial transition-fn state [#(assoc % :state-kw :timed-out)])
        value
        (time-units unit)))))
 
-;;; ## Transition functions
-;; TODO add an :observable
+;;; ## Transition functions and middleware
+(defn base-transition
+  "Final handler for transitions."
+  [{:keys [transition] :as fsm}]
+  (fn base-transition [state update-middleware]
+    {:pre [(instance? clojure.lang.Atom state)]}
+    (let [update-fn (reduce #(%2 %1) update-middleware)
+          [old-state new-state]
+          (swap!! state update-fn)]
+      (transition old-state new-state)
+      new-state)))
 
-(defmulti transition-fn
-  "Return a function for making transitions, given a set of features to support.
-   This multi-method allows other features to be added in an open fashion."
-  (fn [features state-map state fsm] features))
+(defn with-transition-timeout
+  "Middleware for adding timeout's across every transition."
+  [fsm]
+  (let [transition (base-transition fsm)]
+    (fn [handler]
+      (fn with-transition-timeout [state update-middleware]
+        {:pre [(instance? clojure.lang.Atom state)]}
+        (let [new-timeout (atom nil)
+              timeout-spec (atom nil)
 
-(defmethod transition-fn #{}
-  [_
-   state-map
-   state
-   {:keys [transition valid-transition?] :as fsm}]
-  (let [state-updater (:fsm/state-updater state-map identity)]
-    (fn [new-state-fn]
-      (let [[old-state new-state]
-            (swap!!
-             state
-             (fn [state] (-> state new-state-fn state-updater)))]
-        (transition old-state new-state)
-        new-state))))
+              update-fn
+              (fn [handler]
+                (fn timeout-update-fn
+                  [state]
+                  (let [{:keys [timeout] :as new-state} (dissoc
+                                                         (handler state)
+                                                         :timeout-f)]
+                    (logging/debugf
+                     "%stimeout-f %s %s"
+                     (if-let [n (:fsm/name fsm)] (str n " - ") "")
+                     (:timeout-f state)
+                     (and (:timeout-f state) @(:timeout-f state)))
+                    (when-let [old-timeout (and (:timeout-f state)
+                                                @(:timeout-f state))]
+                      (logging/debugf
+                       "%scanceling timeout"
+                       (if-let [n (:fsm/name fsm)] (str n " - ") ""))
+                      (future-cancel old-timeout))
+                    (if timeout
+                      (do
+                        (reset! timeout-spec timeout)
+                        (-> new-state
+                            (assoc :timeout-f new-timeout)
+                            (dissoc :timeout)))
+                      new-state))))]
+          (let [new-state (handler state (conj update-middleware update-fn))]
+            (reset! new-timeout
+                    (schedule-timeout state @timeout-spec transition))
+            (dissoc new-state :timeout-f)))))))
 
-(defmethod transition-fn #{:timeout}
-  [features
-   state-map
-   state
-   {:keys [transition valid-transition?] :as fsm}]
-  (let [state-updater (:fsm/state-updater state-map identity)
-        fsm-name (if-let [n (:fsm/name state-map)] (str n " ") "")]
-    (fn [new-state-fn]
-      (let [new-timeout (atom nil)
-            timeout-spec (atom nil)
-            [old-state new-state]
-            (swap!!
-             state
-             (fn [state]
-               (let [{:keys [timeout] :as new-state}
-                     (-> (dissoc state :timeout-f) new-state-fn state-updater)]
-                 (logging/debugf
-                  "%s - timeout-f %s %s"
-                  fsm-name (:timeout-f state)
-                  (and (:timeout-f state) @(:timeout-f state)))
-                 (when-let [old-timeout (and (:timeout-f state)
-                                             @(:timeout-f state))]
-                   (logging/debugf "%s - canceling timeout" fsm-name)
-                   (future-cancel old-timeout))
-                 (if timeout
-                   (do
-                     (reset! timeout-spec timeout)
-                     (-> new-state
-                         (assoc :timeout-f new-timeout)
-                         (dissoc :timeout)))
-                   new-state))))]
-        (logging/debugf
-         "%s - transition with timeout %s" fsm-name @timeout-spec)
-        (transition old-state new-state)
-        (reset! new-timeout
-                (schedule-timeout
-                 new-state @timeout-spec
-                 (transition-fn features state-map state fsm )))
-        ;; (dissoc new-state :timeout-f)
-        ))))
+(defn with-history
+  "Middleware for adding transition history to the state."
+  [fsm]
+  (fn [handler]
+    (fn with-histroy [state update-middleware]
+      (let [history-update-fn
+            (fn [handler]
+              (fn history-update-fn
+                [state]
+                (let [new-state (handler state)]
+                  (update-in new-state [:history]
+                             conj (dissoc state :history)))))]
+        (handler state (conj update-middleware history-update-fn))))))
+
+(def builtin-middleware
+  {:timeout with-transition-timeout
+   :history with-history})
+
+(defn transition-fn
+  [features state-map state fsm]
+  (let [transition-fn (reduce
+                       #(%2 %1)
+                       (base-transition fsm)
+                       (->> features
+                            (map #(builtin-middleware %1 %1))
+                            (map #(% fsm))))]
+    (fn [update-fn]
+      (transition-fn state [update-fn]))))
 
 (defn stateful-fsm
   "Returns a Finite State Machine where the state of the machine is managed.
@@ -115,22 +134,18 @@ state-map
   by the features in use.
 
 features
-: a set of features that the FSM should support. The sole provided feature
-  is :on-enter-exit. Additional features and their combinations may be added by
-  implementing methods on `transition-fn`.
+: a set of features that the FSM should support. The provided features
+  are :timeout and :history. Additional features may be added by passing
+  middleware functions. middleware functions are functions of the underling fsm,
+  that return a function taking a handler, which in return takes a function of
+  the state atom and a list of state update middleware functions. The function
+  returned by a state middleware function is called within the context of a
+  `swap!` operation on the old and new values of the fsm state.
 
 Returns a map with :transition, :valid-state? and valid-transition? keys,
 providing functions to change the state, test for a valid state and test for a
 valid transition, respectively. The transition function takes a function of
 state, that should return a new state.
-
-On enter and on exit functions
-------------------------------
-
-On enter and on exit functions are enabled by the :on-enter-exit feature.
-
-The :on-enter and :on-exit keys on the state-map values should map to functions
-of a state argument. These functions can be used to manage external state.
 
 Timeouts
 --------
@@ -139,14 +154,19 @@ Timeouts are enabled by the :timeout feature.
 
 If the state map returned by an event function contains a :timeout key, with a
 value specified as a map from unit to duration, then a :timeout event will be
-sent on elapse of the specified duration."
-  ([{:keys [state-kw state-data] :as state} state-map features]
+sent on elapse of the specified duration.
+
+History
+-------
+
+History is enabled by the :history feature, which records states on the
+state's :history key."
+  ([{:keys [state-kw state-data] :as state} state-map fsm-features features]
      (let [fsm (fsm
                 (assoc state-map :fsm/fsm-state-identity :state-kw)
-                (disj (set features) :timeout))
+                fsm-features)
            state (atom state)]
-       {:transition (transition-fn
-                     (disj (set features) :on-enter-exit) state-map state fsm)
+       {:transition (transition-fn features state-map state fsm)
         :valid-state? (valid-state?-fn fsm)
         :valid-transition? (valid-transition?-fn fsm state)
         :state (fn [] (dissoc @state :timeout-f))
@@ -158,4 +178,5 @@ sent on elapse of the specified duration."
       (:fsm/inital-state config)
       (dissoc config
               :fsm/fsm-features :fsm/event-machine-features :fsm/inital-state)
-      (:fsm/fsm-features config))))
+      (:fsm/fsm-features config)
+      (:fsm/stateful-fsm-features config))))

@@ -15,7 +15,7 @@
              :on-enter pallet.computation.fsm-dsl-test/a-fn,
              :transitions #{:idle :refreshing}},
             :fsm/inital-state {:state-kw :fred},
-            :fsm/fsm-features #{:on-enter-exit}}
+            :fsm/fsm-features [:on-enter-exit]}
            (event-machine-config
              (using-fsm-features :on-enter-exit)
              (initial-state :fred)
@@ -60,7 +60,7 @@
                  (on-exit a-fn))))))
     (testing "infers timeout"
       (is (= (event-machine-config
-               (using-fsm-features :timeout)
+               (using-stateful-fsm-features :timeout)
                (state :timed-out
                  (valid-transitions :timed-out)))
              (event-machine-config

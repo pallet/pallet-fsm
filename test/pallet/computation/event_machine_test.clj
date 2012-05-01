@@ -55,6 +55,7 @@
   (testing "no features"
     (let [fsm (stateful-fsm {:state-kw :locked :state-data {:code "123"}}
                             {:locked #{:locked :open} :open #{:open :timed-out}}
+                            nil
                             nil)
           {:keys [event state reset] :as em}
           (event-machine fsm {:locked locked-no-timeout :open open} nil)]
@@ -78,6 +79,7 @@
   (testing "timeout"
     (let [fsm (stateful-fsm {:state-kw :locked :state-data {:code "123"}}
                             {:locked #{:locked :open} :open #{:open :timed-out}}
+                            nil
                             #{:timeout})
           {:keys [event state reset] :as em}
           (event-machine fsm {:locked locked :open open} nil)]
@@ -114,7 +116,8 @@
                              :open
                              {:transitions #{:open :timed-out}
                               :on-enter (fn [_] (reset! enter-open true))}}
-                            #{:timeout :on-enter-exit})
+                            [:on-enter-exit]
+                            [:timeout])
           {:keys [event state reset] :as em}
           (event-machine
            fsm
@@ -139,6 +142,7 @@
                {:locked {:transitions #{:locked :open}}
                 :open {:transitions #{:open :timed-out :re-locked}}
                 :re-locked nil}
+               nil
                #{:timeout})
           state-map {:locked {:event-fn locked-no-timeout
                               :state-fn (fn [_] (swap! locked-counter inc))}
@@ -174,6 +178,7 @@
                {:state-kw :locked :state-data {:code "123"}}
                {:locked {:transitions #{:locked :open}}
                 :open {:transitions #{:open :timed-out :re-locked}}}
+               nil
                #{:timeout})
           state-map {:locked {:event-fn locked-no-timeout
                               :state-fn (fn [_] (swap! locked-counter inc))}

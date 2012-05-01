@@ -44,12 +44,17 @@
 (defn using-fsm-features
   [& features]
   (fn [c]
-    [nil (update-in c [:fsm/fsm-features] union (set features))]))
+    [nil (update-in c [:fsm/fsm-features] concat features)]))
+
+(defn using-stateful-fsm-features
+  [& features]
+  (fn [c]
+    [nil (update-in c [:fsm/stateful-fsm-features] concat features)]))
 
 (defn using-event-machine-features
   [& features]
   (fn [c]
-    [nil (update-in c [:fsm/event-machine-features] union (set features))]))
+    [nil (update-in c [:fsm/event-machine-features] concat features)]))
 
 (defmacro state
   {:indent 1}
@@ -111,10 +116,12 @@
   (let [c (if (some
                (fn [[k v]] (when (map? v) (or (:on-enter v) (:on-exit v))))
                c)
-            (update-in c [:fsm/fsm-features] union #{:on-enter-exit})
+            (update-in c [:fsm/fsm-features]
+                       (comp distinct concat) [:on-enter-exit])
             c)
         c (if (:timed-out c)
-            (update-in c [:fsm/fsm-features] union #{:timeout})
+            (update-in c [:fsm/stateful-fsm-features]
+                       (comp distinct concat) [:timeout])
             c)]
     c))
 

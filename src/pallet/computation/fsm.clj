@@ -57,48 +57,73 @@
     (fn transition-to-state [old-state new-state]
       (validate-state (state-identity old-state))
       (validate-transition
-       (state-identity old-state) (state-identity new-state))
-      new-state)))
+       (state-identity old-state) (state-identity new-state)))))
 
 (defn exit-enter-fn
   "A function that calls on-exit and on-enter if a state has changed."
   [state-map]
   (let [state-identity (state-identity state-map)
-        fsm-name (if-let [n (:fsm/name state-map)] (str n " ") "")]
+        fsm-name (if-let [n (:fsm/name state-map)] (str n " - ") "")]
     (fn exit-enter
       [old-state new-state]
       (let [old-state-id (state-identity old-state)
             new-state-id (state-identity new-state)]
-        (logging/debugf
-         "%s - state %s -> %s"
-         fsm-name
-         (state-identity old-state) (state-identity new-state))
         (when (not= old-state-id new-state-id)
           (when-let [on-exit (get-in state-map [old-state-id :on-exit])]
             (on-exit old-state))
           (when-let [on-enter (get-in state-map [new-state-id :on-enter])]
             (on-enter new-state)))))))
 
-;;; ## Transition functions
-
-;; TODO add an :observable
-
-(defmulti transition-fn
-  "Return a function for making transitions, given a set of features to support.
-   This multi-method allows other features to be added in an open fashion."
-  (fn [features state-map] features))
-
-(defmethod transition-fn #{}
-  [_ state-map]
+;;; ## Transition functions and middleware
+(defn base-transition
+  [state-map]
   (transition-to-state-fn state-map))
 
-(defmethod transition-fn #{:on-enter-exit}
-  [_ state-map]
-  (let [transition-to-state (transition-to-state-fn state-map)
-        exit-enter (exit-enter-fn state-map)]
+(defn with-enter-exit
+  [state-map]
+  (let [exit-enter (exit-enter-fn state-map)]
     (fn transition [old-state new-state]
-      (transition-to-state old-state new-state)
-      (exit-enter old-state new-state)
+      (exit-enter old-state new-state))))
+
+(defn with-transition-observer
+  "Middleware for adding a transition `observer` function.  The `observer` must
+  be a function of two arguments, the old and new states. The return value of
+  the observer is ignored."
+  [observer]
+  (fn [state-map]
+    observer))
+
+(defn with-transition-logger
+  "Middleware to log transitions."
+  [log-level]
+  (fn [state-map]
+    (let [fsm-name (if-let [n (:fsm/name state-map)] (str n " - ") "")]
+      (fn [old-state new-state]
+        (logging/logf
+         log-level "%stransition from %s to %s"
+         fsm-name old-state new-state)))))
+
+(defn with-transition-identity-logger
+  "Middleware to log transition identities."
+  [log-level]
+  (fn [state-map]
+    (let [fsm-name (if-let [n (:fsm/name state-map)] (str n " - ") "")
+          state-identity (state-identity state-map)]
+      (fn [old-state new-state]
+        (logging/logf
+         log-level "%s%s -> %s"
+         fsm-name (state-identity old-state) (state-identity new-state))))))
+
+(def builtin-middleware
+  {:on-enter-exit with-enter-exit})
+
+(defn transition-fn [features state-map]
+  (let [fs (->> (concat [base-transition] features)
+                (map #(builtin-middleware %1 %1))
+                (map #(% state-map)))]
+    (fn [old-state new-state]
+      (doseq [f fs]
+        (f old-state new-state))
       new-state)))
 
 ;;; ## FSM constructor
@@ -113,9 +138,12 @@ state-map
   by the features in use.
 
 features
-: a set of features that the FSM should support. The sole provided feature
-  is :on-enter-exit. Additional features and their combinations may be added by
-  implementing methods on `transition-fn`.
+: a set of features that the FSM should support. Features are either named by
+  keyword for the builtin feature, :on-enter-exit, or are plugin functions that
+  should take a state-map and return a function taking the old and new states
+  as arguments. The return value of the plugin function is ignored. There are
+  three plugin constructor functions provided, `with-transition-observer`
+  `with-transition-logger`, and `with-transition-identity-logger`.
 
 Returns a map with :transition, :valid-state? and valid-transition? keys,
 providing functions to change the state, test for a valid state and test for a
