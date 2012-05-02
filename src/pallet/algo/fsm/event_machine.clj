@@ -16,7 +16,7 @@
     :event-data event-data}
    "No event function for: state %s, event %s" (:state-kw state) event))
 
-(defn call-event-fn
+(defn- call-event-fn
   "A function that calls the event function for the state."
   [state-map {:keys [transition] :as fsm}]
   (let [fsm-name (if-let [n (:fsm/name state-map)] (str n " - ") "")]
