@@ -58,7 +58,7 @@
 
 (defn with-transition-timeout
   "Middleware for adding timeout's across every transition."
-  [fsm]
+  [state-map fsm]
   (let [transition (base-transition fsm)]
     (fn [handler]
       (fn with-transition-timeout [state update-middleware]
@@ -75,14 +75,14 @@
                                                          :timeout-f)]
                     (logging/debugf
                      "%stimeout-f %s %s"
-                     (if-let [n (:fsm/name fsm)] (str n " - ") "")
+                     (if-let [n (:fsm/name state-map)] (str n " - ") "")
                      (:timeout-f state)
                      (and (:timeout-f state) @(:timeout-f state)))
                     (when-let [old-timeout (and (:timeout-f state)
                                                 @(:timeout-f state))]
                       (logging/debugf
                        "%scanceling timeout"
-                       (if-let [n (:fsm/name fsm)] (str n " - ") ""))
+                       (if-let [n (:fsm/name state-map)] (str n " - ") ""))
                       (future-cancel old-timeout))
                     (if timeout
                       (do
@@ -98,17 +98,24 @@
 
 (defn with-history
   "Middleware for adding transition history to the state."
-  [fsm]
-  (fn [handler]
-    (fn with-histroy [state update-middleware]
-      (let [history-update-fn
-            (fn [handler]
-              (fn history-update-fn
-                [state]
-                (let [new-state (handler state)]
-                  (update-in new-state [:history]
-                             conj (dissoc state :history)))))]
-        (handler state (conj update-middleware history-update-fn))))))
+  [state-map fsm]
+  (let [fsm-name (:fsm/name state-map)]
+    (fn [handler]
+      (fn with-histroy [state update-middleware]
+        (let [history-update-fn
+              (fn [handler]
+                (fn history-update-fn
+                  [state]
+                  (let [new-state (handler state)]
+                    (update-in
+                     new-state [:history]
+                     conj (-> state
+                              (dissoc :history :fsm :em)
+                              ((fn [state]
+                                 (if fsm-name
+                                   (assoc state :fsm/name fsm-name)
+                                   state))))))))]
+          (handler state (conj update-middleware history-update-fn)))))))
 
 (def builtin-middleware
   {:timeout with-transition-timeout
@@ -121,7 +128,7 @@
                        (base-transition fsm)
                        (->> features
                             (map #(builtin-middleware %1 %1))
-                            (map #(% fsm))))]
+                            (map #(% state-map fsm))))]
     (fn [update-fn]
       (transition-fn state [update-fn]))))
 

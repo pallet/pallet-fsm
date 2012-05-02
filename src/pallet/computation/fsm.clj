@@ -36,17 +36,20 @@
 
 (defn validate-transition
   [state-map]
-  (fn [from-state to-state]
-    (let [v? (get-in state-map [from-state :transitions])]
-      (when (or (nil? v?)
-                (not (v? to-state)))
-        (throw+
-         {:reason :invalid-transition
-          :from-state from-state
-          :to-state to-state
-          :state-map state-map}
-         "Invalid transition from %s to %s for %s"
-         from-state to-state state-map)))))
+  (let [fsm-name (:fsm/name state-map)]
+    (fn [from-state to-state]
+      (let [v? (get-in state-map [from-state :transitions])]
+        (when (or (nil? v?)
+                  (not (v? to-state)))
+          (throw+
+           {:reason :invalid-transition
+            :from-state from-state
+            :to-state to-state
+            :state-map state-map
+            :fsm-name fsm-name}
+           "Invalid transition%s: from %s to %s for %s"
+           (if fsm-name (str " " fsm-name) "")
+           from-state to-state state-map))))))
 
 (defn transition-to-state-fn
   "Return a function that transitions to a new state"
