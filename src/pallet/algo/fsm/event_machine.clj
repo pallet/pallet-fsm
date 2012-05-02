@@ -1,8 +1,8 @@
-(ns pallet.computation.event-machine
+(ns pallet.algo.fsm.event-machine
   "An event machine dispatches events to updates in an underlying finite state
   machine."
   (:use
-   [pallet.computation.stateful-fsm :only [stateful-fsm]]
+   [pallet.algo.fsm.stateful-fsm :only [stateful-fsm]]
    [slingshot.slingshot :only [throw+]])
   (:require
    [clojure.tools.logging :as logging]))

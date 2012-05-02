@@ -1,8 +1,8 @@
-(ns pallet.computation.stateful-fsm
+(ns pallet.algo.fsm.stateful-fsm
   "A finite state machine with managed state"
   (:use
-   [pallet.computation.fsm :only [fsm]]
-   [pallet.computation.fsm-utils :only [swap!!]]
+   [pallet.algo.fsm.fsm :only [fsm]]
+   [pallet.algo.fsm.fsm-utils :only [swap!!]]
    [pallet.thread.executor :only [executor execute-after]]
    [slingshot.slingshot :only [throw+]])
   (:require

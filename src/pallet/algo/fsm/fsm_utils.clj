@@ -1,4 +1,4 @@
-(ns pallet.computation.fsm-utils)
+(ns pallet.algo.fsm.fsm-utils)
 
 ;; this belongs in some util lib
 (defn swap!!

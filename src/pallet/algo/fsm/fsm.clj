@@ -1,29 +1,32 @@
-(ns pallet.computation.fsm
-  "A finite state machine lib"
+(ns pallet.algo.fsm.fsm
+  "A finite state machine with externally maintained state."
   (:use
    [slingshot.slingshot :only [throw+]])
   (:require
    [clojure.tools.logging :as logging]))
 
-;;; ## Implementation functions
-(defn state-identity
+;;; ## State identity function
+(defn- state-identity
+  "Returns a function to extract the state identity from the state.
+  By default the state is just an identity."
   [state-map]
   (:fsm/fsm-state-identity state-map identity))
 
-(defn valid-state?-fn
+;;; ## State and transition validation
+(defn- valid-state?-fn
   [state-map]
   (let [state-identity (state-identity state-map)]
     (fn valid-state? [state]
       (not= ::nil (get state-map (state-identity state) ::nil)))))
 
-(defn valid-transition?-fn
+(defn- valid-transition?-fn
   [state-map]
   (let [state-identity (state-identity state-map)]
     (fn [from-state to-state]
       (let [v? (get-in state-map [(state-identity from-state) :transitions])]
         (and v? (v? (state-identity to-state)))))))
 
-(defn validate-state
+(defn- validate-state
   [state-map]
   (fn
     [state]
@@ -34,7 +37,7 @@
         :state-map state-map}
        "Invalid state %s" state state-map))))
 
-(defn validate-transition
+(defn- validate-transition
   [state-map]
   (let [fsm-name (:fsm/name state-map)]
     (fn [from-state to-state]
@@ -51,7 +54,8 @@
            (if fsm-name (str " " fsm-name) "")
            from-state to-state state-map))))))
 
-(defn transition-to-state-fn
+;;; ## Basic transition
+(defn- transition-to-state-fn
   "Return a function that transitions to a new state"
   [state-map]
   (let [validate-state (validate-state state-map)
@@ -62,7 +66,8 @@
       (validate-transition
        (state-identity old-state) (state-identity new-state)))))
 
-(defn exit-enter-fn
+;;; ## On-enter and on-exit functions
+(defn- exit-enter-fn
   "A function that calls on-exit and on-enter if a state has changed."
   [state-map]
   (let [state-identity (state-identity state-map)
@@ -77,17 +82,13 @@
           (when-let [on-enter (get-in state-map [new-state-id :on-enter])]
             (on-enter new-state)))))))
 
-;;; ## Transition functions and middleware
-(defn base-transition
-  [state-map]
-  (transition-to-state-fn state-map))
-
 (defn with-enter-exit
   [state-map]
   (let [exit-enter (exit-enter-fn state-map)]
     (fn transition [old-state new-state]
       (exit-enter old-state new-state))))
 
+;;; ## Observers and loggers
 (defn with-transition-observer
   "Middleware for adding a transition `observer` function.  The `observer` must
   be a function of two arguments, the old and new states. The return value of
@@ -117,11 +118,13 @@
          log-level "%s%s -> %s"
          fsm-name (state-identity old-state) (state-identity new-state))))))
 
-(def builtin-middleware
+;;; ## Feature plugin processing
+(def ^{:private true}
+  builtin-middleware
   {:on-enter-exit with-enter-exit})
 
-(defn transition-fn [features state-map]
-  (let [fs (->> (concat [base-transition] features)
+(defn- transition-fn [features state-map]
+  (let [fs (->> (concat [transition-to-state-fn] features)
                 (map #(builtin-middleware %1 %1))
                 (map #(% state-map)))]
     (fn [old-state new-state]
@@ -129,7 +132,7 @@
         (f old-state new-state))
       new-state)))
 
-;;; ## FSM constructor
+;;; ## FSM
 
 (defn fsm
   "Returns a Finite State Machine where the current state is managed by the

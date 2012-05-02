@@ -1,7 +1,7 @@
-(ns pallet.computation.fsm-test
+(ns pallet.algo.fsm.fsm-test
   (:use
    clojure.test
-   pallet.computation.fsm))
+   pallet.algo.fsm.fsm))
 
 (deftest fsm-test
   (testing "no features"

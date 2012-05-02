@@ -1,7 +1,7 @@
-(ns pallet.computation.fsm-dsl-test
+(ns pallet.algo.fsm.fsm-dsl-test
   (:use
    clojure.test
-   pallet.computation.fsm-dsl))
+   pallet.algo.fsm.fsm-dsl))
 
 (defn a-fn [])
 
@@ -9,10 +9,10 @@
   (testing "general usage"
     (is (= {:idle {:transitions #{:idle :refreshing}},
             :refreshing
-            {:state-fn pallet.computation.fsm-dsl-test/a-fn,
-             :event-fn pallet.computation.fsm-dsl-test/a-fn,
-             :on-exit pallet.computation.fsm-dsl-test/a-fn,
-             :on-enter pallet.computation.fsm-dsl-test/a-fn,
+            {:state-fn pallet.algo.fsm.fsm-dsl-test/a-fn,
+             :event-fn pallet.algo.fsm.fsm-dsl-test/a-fn,
+             :on-exit pallet.algo.fsm.fsm-dsl-test/a-fn,
+             :on-enter pallet.algo.fsm.fsm-dsl-test/a-fn,
              :transitions #{:idle :refreshing}},
             :fsm/inital-state {:state-kw :fred},
             :fsm/fsm-features [:on-enter-exit]}

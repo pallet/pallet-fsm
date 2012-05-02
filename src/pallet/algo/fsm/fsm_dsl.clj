@@ -1,4 +1,4 @@
-(ns pallet.computation.fsm-dsl
+(ns pallet.algo.fsm.fsm-dsl
   "A DSL for generating fsm and event-machine state-map's"
   (:use
    [clojure.set :only [union]]

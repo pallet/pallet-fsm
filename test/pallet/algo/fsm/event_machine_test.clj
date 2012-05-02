@@ -1,8 +1,8 @@
-(ns pallet.computation.event-machine-test
+(ns pallet.algo.fsm.event-machine-test
   (:use
    clojure.test
-   pallet.computation.event-machine
-   [pallet.computation.stateful-fsm :only [stateful-fsm]]))
+   pallet.algo.fsm.event-machine
+   [pallet.algo.fsm.stateful-fsm :only [stateful-fsm]]))
 
 ;; example from http://www.erlang.org/doc/design_principles/fsm.html
 
