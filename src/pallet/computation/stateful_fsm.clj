@@ -3,49 +3,23 @@
   (:use
    [pallet.computation.fsm :only [fsm]]
    [pallet.computation.fsm-utils :only [swap!!]]
+   [pallet.thread.executor :only [executor execute-after]]
    [slingshot.slingshot :only [throw+]])
   (:require
-   [clojure.tools.logging :as logging])
-  (:import
-   java.util.concurrent.Executors
-   java.util.concurrent.TimeUnit))
+   [clojure.tools.logging :as logging]))
 
-(defonce ^{:defonce true} timeout-sender
-  (Executors/newScheduledThreadPool 3))
-
-(def time-units
-  {:days TimeUnit/DAYS
-   :hours TimeUnit/HOURS
-   :us TimeUnit/MICROSECONDS
-   :ms TimeUnit/MILLISECONDS
-   :mins TimeUnit/MINUTES
-   :ns TimeUnit/NANOSECONDS
-   :s TimeUnit/SECONDS})
-
-;;; ## Implementation functions
-(defn valid-state?-fn
+;;; ## Base FSM transitions
+(defn- valid-state?-fn
   [{:keys [valid-state?] :as fsm}]
   valid-state?)
 
-(defn valid-transition?-fn
+(defn- valid-transition?-fn
   [fsm state]
   (let [v-t? (:valid-transition? fsm)]
     (fn [to-state]
       (v-t? @state to-state))))
 
-(defn schedule-timeout
-  [state timeout transition-fn]
-  (when timeout
-    (logging/debugf "fsm timeout for %s in %s" (:state-kw state) timeout)
-    (let [[unit value] (first timeout)]
-      (.schedule
-       timeout-sender
-       (partial transition-fn state [#(assoc % :state-kw :timed-out)])
-       value
-       (time-units unit)))))
-
-;;; ## Transition functions and middleware
-(defn base-transition
+(defn- base-transition
   "Final handler for transitions."
   [{:keys [transition] :as fsm}]
   (fn base-transition [state update-middleware]
@@ -55,6 +29,26 @@
           (swap!! state update-fn)]
       (transition old-state new-state)
       new-state)))
+
+;;; ## Transitions with timeouts
+(defonce
+  ^{:defonce true :private true
+    :doc "A scheduled executor service for implementing notification of
+         timeouts."}
+  timeout-sender
+  (executor
+   {:scheduled true :pool-size 3 :prefix "fsm" :thread-group-name "fsm"}))
+
+(defn- schedule-timeout
+  [state timeout transition-fn]
+  (when timeout
+    (logging/debugf "fsm timeout for %s in %s" (:state-kw state) timeout)
+    (let [[unit value] (first timeout)]
+      (execute-after
+       timeout-sender
+       (partial transition-fn state [#(assoc % :state-kw :timed-out)])
+       value
+       unit))))
 
 (defn with-transition-timeout
   "Middleware for adding timeout's across every transition."
@@ -96,6 +90,7 @@
                     (schedule-timeout state @timeout-spec transition))
             (dissoc new-state :timeout-f)))))))
 
+;;; ## History
 (defn with-history
   "Middleware for adding transition history to the state."
   [state-map fsm]
@@ -117,11 +112,15 @@
                                    state))))))))]
           (handler state (conj update-middleware history-update-fn)))))))
 
-(def builtin-middleware
+;;; ## Feature middleware processing
+(def ^{:private true
+       :doc "Provides look-up from feature keyword to implementation function."}
+  builtin-middleware
   {:timeout with-transition-timeout
    :history with-history})
 
-(defn transition-fn
+(defn- transition-fn
+  "Returns a transition function that implements the specified features."
   [features state-map state fsm]
   (let [transition-fn (reduce
                        #(%2 %1)
@@ -132,6 +131,7 @@
     (fn [update-fn]
       (transition-fn state [update-fn]))))
 
+;;; ## Stateful FSM
 (defn stateful-fsm
   "Returns a Finite State Machine where the state of the machine is managed.
 
