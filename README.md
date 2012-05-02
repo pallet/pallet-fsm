@@ -33,7 +33,151 @@ mechanism for running a per state `state-fn` against the current state of an
 
 ## Usage
 
-See tests for now.
+The library has a DSL for producing the configuration map that is passed to
+`fsm`, `stateful-fsm` or `event-machine`. The DSL is optional.
+
+### Basic FSM
+The basic `fsm` just verifies externally specified transitions.
+
+```clj
+(use 'pallet.algo.fsm.fsm 'pallet.algo.fsm.fsm-dsl)
+(let [{:keys [transition valid-state? valid-transition?] :as sm}
+      (fsm
+        (fsm-config
+          (state :locked
+            (valid-transitions :locked :open))
+          (state :open
+            (valid-transitions :locked))))]
+  (valid-state? :locked) ; => true
+  (valid-state? :broken) ; => false
+
+  (valid-transition? :locked :open) ; => true
+  (valid-transition? :open :open) ; => false
+
+  (transition :locked :open) ; => :open
+  (transition :open :locked)) ; => :locked
+```
+
+`fsm` also provides on-enter and on-exit functions for states, that can be used
+to manage external state. Note that on-enter and on-exit functions can not
+(functionally) modify the fsm state.
+
+```clj
+(use 'pallet.algo.fsm.fsm 'pallet.algo.fsm.fsm-dsl)
+(let [exit-locked (atom nil)
+      enter-open (atom nil)
+      {:keys [transition valid-state? valid-transition?] :as sm}
+      (fsm
+        (fsm-config
+          (state :locked
+            (valid-transitions :locked :open)
+            (on-exit (fn [_] (reset! exit-locked true)))
+          (state :open
+            (valid-transitions :locked)
+            (on-enter (fn [_] (reset! enter-open true)))))))]
+  (transition :locked :open) ; => :open
+  @exit-locked ; => true
+  @enter-open ; => true)
+```
+
+Logging and other features can be added with `using-fsm-features`.
+
+```clj
+(use 'pallet.algo.fsm.fsm 'pallet.algo.fsm.fsm-dsl)
+(let [{:keys [transition valid-state? valid-transition?] :as sm}
+      (fsm
+        (fsm-config
+          (using-fsm-features (with-transition-logger :debug))
+          (state :locked
+            (valid-transitions :locked :open))
+          (state :open
+            (valid-transitions :locked))))]
+  ...)
+```
+
+### Stateful FSM
+
+The `stateful-fsm` maintains it's state in an atom, and provides atomic
+transitions. The `initial-state` needs to be specified. An option
+`initial-state-data` may also be given. The transition function takes
+a function that will be used to update the state map atomically.
+
+```clj
+(use 'pallet.algo.fsm.stateful-fsm 'pallet.algo.fsm.fsm-dsl)
+(let [{:keys [transition state reset valid-state? valid-transition?] :as sm}
+      (stateful-fsm
+        (fsm-config
+          (initial-state :locked)
+          (initial-state-data {:code 123})
+          (state :locked
+            (valid-transitions :locked :open))
+          (state :open
+            (valid-transitions :locked))))]
+  (state) ; => {:state-kw :locked :state-data {:code "123"}}
+  (transition
+    #(assoc % :state-kw :locked :state-data {:so-far "1"})))
+    ; => {:state-kw :locked :state-data {:so-far "1"}}
+```
+
+The `:timeout` feature allows the specification of timeouts for a state. If a
+timeout expires the state will transition to the `:timed-out` state. Features
+are specified with the `using-stateful-fsm-features` form.
+
+```clj
+(let [{:keys [transition state reset valid-state? valid-transition?] :as sm}
+      (stateful-fsm
+        (fsm-config
+          (initial-state :locked)
+          (initial-state-data {:code 123})
+          (using-stateful-fsm-features :timeout)
+          (state :locked
+            (valid-transitions :locked :open))
+          (state :open
+            (valid-transitions :locked :timed-out))
+          (state :timed-out))]
+  (transition
+    #(assoc % :state-kw :open :timeout {:s 1}))
+    ; => {:state-kw :open}
+  (Thread/sleep 2000) ; wait 2s
+  (state) ; => {:state-kw :timed-out})
+```
+
+The `stateful-fsm` also provides a `:history` feature, that will record all
+states as a sequence available on the state's `:history` keyword.
+
+The `fsm` features can still be used, as `stateful-fsm` is implemented on top of
+`fsm`.
+
+## Event Machine
+
+The `event-machine` adds the ability to respond to events, sent to the fsm via
+it's `:event` function.
+
+Events are handled by a state specific `event-handler`, which can implement an
+arbitrary event to state transition mapping, and can freely update the
+:state-data in the state.
+
+```clj
+(use 'pallet.algo.fsm.event-machin 'pallet.algo.fsm.fsm-dsl)
+(let [locked (fn [state event event-data]
+               (if (= event :open-sesame)
+                 (assoc state :state-kw :open :state-data "welcome")
+                 state))
+      {:keys [event state] :as sm}
+      (event-machine
+        (event-machine-config
+          (initial-state :locked)
+          (state :locked
+            (valid-transitions :locked :open)
+            (event-handler locked)
+          (state :open
+            (valid-transitions :locked)))]
+  (event :trying nil) ; => {:state-kw :locked}
+  (event :open-sesame nil) ; => {:state-kw :open :state-data "welcome"})
+```
+
+The `fsm` and `event-machine` features can still be used, as `event-machine` is
+implemented on top of `stateful-fsm`.
 
 ## License
 
