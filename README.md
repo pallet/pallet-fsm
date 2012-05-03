@@ -179,6 +179,10 @@ arbitrary event to state transition mapping, and can freely update the
 The `fsm` and `event-machine` features can still be used, as `event-machine` is
 implemented on top of `stateful-fsm`.
 
+## API Docs
+
+[API documentation](http://palletops.com/pallet-fsm/)
+
 ## License
 
 Copyright © 2012 Hugo Duncan
