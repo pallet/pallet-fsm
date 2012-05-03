@@ -1,0 +1,97 @@
+<html lang="en">
+  <head>
+    <title>pallet.algo.fsm.event-machine documentation</title>
+    <link href="css/default.css" type="text/css" rel="stylesheet" />
+    <script type="text/javascript" src="js/jquery.min.js"></script>
+    <script type="text/javascript" src="js/page_effects.js"></script>
+  </head>
+  <body>
+    <header>
+      <div id="header">
+        <h1 class="project-title">Pallet-fsm 0.1.0-SNAPSHOT API documentation</h1>
+      </div>
+    </header>
+    <navigation>
+      <div id="namespaces" class="sidebar">
+        <h3>Namespaces</h3>
+        <ul class="ns-links">
+          <li class="ns-link"><a href="pallet.algo.fsm.event-machine.html">pallet.algo.fsm.event-machine</a></li><li class="ns-link"><a href="pallet.algo.fsm.fsm.html">pallet.algo.fsm.fsm</a></li><li class="ns-link"><a href="pallet.algo.fsm.fsm-dsl.html">pallet.algo.fsm.fsm-dsl</a></li><li class="ns-link"><a href="pallet.algo.fsm.fsm-utils.html">pallet.algo.fsm.fsm-utils</a></li><li class="ns-link"><a href="pallet.algo.fsm.stateful-fsm.html">pallet.algo.fsm.stateful-fsm</a></li>
+        </ul>
+      </div>
+      <div id="vars" class="sidebar">
+        <h3>Public Vars</h3>
+        <ul class="ns-var-links">
+          <li class="ns-var-link"><a href="pallet.algo.fsm.event-machine.html#var-event-machine">event-machine</a></li><li class="ns-var-link"><a href="pallet.algo.fsm.event-machine.html#var-event-machine-loop-fn">event-machine-loop-fn</a></li><li class="ns-var-link"><a href="pallet.algo.fsm.event-machine.html#var-fire-event-fn">fire-event-fn</a></li><li class="ns-var-link"><a href="pallet.algo.fsm.event-machine.html#var-poll-event-machine-fn">poll-event-machine-fn</a></li><li class="ns-var-link"><a href="pallet.algo.fsm.event-machine.html#var-update-state">update-state</a></li>
+        </ul>
+      </div>
+    </navigation>
+    <article>
+      <div id="content" class="namespace-docs">
+        <h2 class="namespace-title">pallet.algo.fsm.event-machine documentation</h2>
+        <div class="doc"><p>An event machine dispatches events to updates in an underlying finite state
+machine.</p>
+</div>
+        <div class="ns-vars">
+          <div class="public">
+            <h3 id="var-event-machine">event-machine</h3>
+            <div class="usage">[fsm state-map features]</div><div class="usage">[config]</div>
+            
+            
+            <div class="doc"><p>Returns an Event Machine, which dispatches events to state transitions
+in a FSM. This adds event dispatch based on arbitrary functions.</p>
+
+<p>fsm
+: a fsm to dispatch to</p>
+
+<p>state-map
+: a map from state key to an event transition function or to a map with
+  an :event-fn key. Other keys on the state-map values are used by features.</p>
+
+<p>features
+: a set of features that the event machine should support. None yet implemented.</p>
+
+<p>Returns a map with :event, :state and :reset keys, providing functions to send
+an event, query the state and reset the state, respectively.</p>
+
+<p>state-map transition functions should take the current state vector, and event,
+and user data.  Functions should return the new state as a map with keys
+:status :state-kw and :state-data.</p>
+</div>
+          </div><div class="public">
+            <h3 id="var-event-machine-loop-fn">event-machine-loop-fn</h3>
+            <div class="usage">[state-map terminal-state?]</div>
+            
+            
+            <div class="doc"><p>Returns a function to continuously run the state-map's :state-fn's against
+the current state of an event-machine, until a terminal-state is reached.</p>
+</div>
+          </div><div class="public">
+            <h3 id="var-fire-event-fn">fire-event-fn</h3>
+            
+            
+            
+            <div class="doc"><p>Return a function for firing events, given a set of features to support.
+This multi-method allows other features to be added in an open fashion.</p>
+</div>
+          </div><div class="public">
+            <h3 id="var-poll-event-machine-fn">poll-event-machine-fn</h3>
+            <div class="usage">[state-map terminal-state?]</div>
+            
+            
+            <div class="doc"><p>Returns a function to run the state-map's :state-fn's once against the
+current state of an event-machine.</p>
+</div>
+          </div><div class="public">
+            <h3 id="var-update-state">update-state</h3>
+            <div class="usage">[state state-kw f &amp; args]</div>
+            
+            
+            <div class="doc"><p>Convenience update function.</p>
+</div>
+          </div>
+        </div>
+      </div>
+    </article>
+  </body>
+
+</html>

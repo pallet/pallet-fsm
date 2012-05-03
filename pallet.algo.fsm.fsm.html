@@ -1,0 +1,104 @@
+<html lang="en">
+  <head>
+    <title>pallet.algo.fsm.fsm documentation</title>
+    <link href="css/default.css" type="text/css" rel="stylesheet" />
+    <script type="text/javascript" src="js/jquery.min.js"></script>
+    <script type="text/javascript" src="js/page_effects.js"></script>
+  </head>
+  <body>
+    <header>
+      <div id="header">
+        <h1 class="project-title">Pallet-fsm 0.1.0-SNAPSHOT API documentation</h1>
+      </div>
+    </header>
+    <navigation>
+      <div id="namespaces" class="sidebar">
+        <h3>Namespaces</h3>
+        <ul class="ns-links">
+          <li class="ns-link"><a href="pallet.algo.fsm.event-machine.html">pallet.algo.fsm.event-machine</a></li><li class="ns-link"><a href="pallet.algo.fsm.fsm.html">pallet.algo.fsm.fsm</a></li><li class="ns-link"><a href="pallet.algo.fsm.fsm-dsl.html">pallet.algo.fsm.fsm-dsl</a></li><li class="ns-link"><a href="pallet.algo.fsm.fsm-utils.html">pallet.algo.fsm.fsm-utils</a></li><li class="ns-link"><a href="pallet.algo.fsm.stateful-fsm.html">pallet.algo.fsm.stateful-fsm</a></li>
+        </ul>
+      </div>
+      <div id="vars" class="sidebar">
+        <h3>Public Vars</h3>
+        <ul class="ns-var-links">
+          <li class="ns-var-link"><a href="pallet.algo.fsm.fsm.html#var-fsm">fsm</a></li><li class="ns-var-link"><a href="pallet.algo.fsm.fsm.html#var-with-transition-identity-logger">with-transition-identity-logger</a></li><li class="ns-var-link"><a href="pallet.algo.fsm.fsm.html#var-with-transition-logger">with-transition-logger</a></li><li class="ns-var-link"><a href="pallet.algo.fsm.fsm.html#var-with-transition-observer">with-transition-observer</a></li>
+        </ul>
+      </div>
+    </navigation>
+    <article>
+      <div id="content" class="namespace-docs">
+        <h2 class="namespace-title">pallet.algo.fsm.fsm documentation</h2>
+        <div class="doc"><p>A finite state machine with externally maintained state.</p>
+</div>
+        <div class="ns-vars">
+          <div class="public">
+            <h3 id="var-fsm">fsm</h3>
+            <div class="usage">[state-map features]</div><div class="usage">[config]</div>
+            
+            
+            <div class="doc"><p>Returns a Finite State Machine where the current state is managed by the
+user.</p>
+
+<p>state-map
+: a map from state key to a set of valid transition states, or to a map with
+  a :transitions key with a set of valid tranisition keys, and any keys required
+  by the features in use.</p>
+
+<p>features
+: a set of features that the FSM should support. Features are either named by
+  keyword for the builtin feature, :on-enter-exit, or are plugin functions that
+  should take a state-map and return a function taking the old and new states
+  as arguments. The return value of the plugin function is ignored. There are
+  three plugin constructor functions provided, <code>with-transition-observer</code>
+  <code>with-transition-logger</code>, and <code>with-transition-identity-logger</code>.</p>
+
+<p>Returns a map with :transition, :valid-state? and valid-transition? keys,
+providing functions to change the state, test for a valid state and test for a
+valid transition, respectively.</p>
+
+<p>The :transition function takes an old state and a new state, and returns the new
+state. An exception is thrown if the transition is invalid.</p>
+
+<p>The :valid-state? predicate tests a state for validity.</p>
+
+<p>The :valid-transition? predicate tests an old state, new state pair for
+validity.</p>
+
+<h2>On enter and on exit functions</h2>
+
+<p>On enter and on exit functions are enabled by the :on-enter-exit feature.</p>
+
+<p>The :on-enter and :on-exit keys on the state-map values should map to functions
+of a state argument. These functions can be used to manage external state, and
+will be called as appropriate by the :transition function.</p>
+</div>
+          </div><div class="public">
+            <h3 id="var-with-transition-identity-logger">with-transition-identity-logger</h3>
+            <div class="usage">[log-level]</div>
+            
+            
+            <div class="doc"><p>Middleware to log transition identities.</p>
+</div>
+          </div><div class="public">
+            <h3 id="var-with-transition-logger">with-transition-logger</h3>
+            <div class="usage">[log-level]</div>
+            
+            
+            <div class="doc"><p>Middleware to log transitions.</p>
+</div>
+          </div><div class="public">
+            <h3 id="var-with-transition-observer">with-transition-observer</h3>
+            <div class="usage">[observer]</div>
+            
+            
+            <div class="doc"><p>Middleware for adding a transition <code>observer</code> function.  The <code>observer</code> must
+be a function of two arguments, the old and new states. The return value of
+the observer is ignored.</p>
+</div>
+          </div>
+        </div>
+      </div>
+    </article>
+  </body>
+
+</html>

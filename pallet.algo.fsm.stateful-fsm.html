@@ -1,0 +1,93 @@
+<html lang="en">
+  <head>
+    <title>pallet.algo.fsm.stateful-fsm documentation</title>
+    <link href="css/default.css" type="text/css" rel="stylesheet" />
+    <script type="text/javascript" src="js/jquery.min.js"></script>
+    <script type="text/javascript" src="js/page_effects.js"></script>
+  </head>
+  <body>
+    <header>
+      <div id="header">
+        <h1 class="project-title">Pallet-fsm 0.1.0-SNAPSHOT API documentation</h1>
+      </div>
+    </header>
+    <navigation>
+      <div id="namespaces" class="sidebar">
+        <h3>Namespaces</h3>
+        <ul class="ns-links">
+          <li class="ns-link"><a href="pallet.algo.fsm.event-machine.html">pallet.algo.fsm.event-machine</a></li><li class="ns-link"><a href="pallet.algo.fsm.fsm.html">pallet.algo.fsm.fsm</a></li><li class="ns-link"><a href="pallet.algo.fsm.fsm-dsl.html">pallet.algo.fsm.fsm-dsl</a></li><li class="ns-link"><a href="pallet.algo.fsm.fsm-utils.html">pallet.algo.fsm.fsm-utils</a></li><li class="ns-link"><a href="pallet.algo.fsm.stateful-fsm.html">pallet.algo.fsm.stateful-fsm</a></li>
+        </ul>
+      </div>
+      <div id="vars" class="sidebar">
+        <h3>Public Vars</h3>
+        <ul class="ns-var-links">
+          <li class="ns-var-link"><a href="pallet.algo.fsm.stateful-fsm.html#var-stateful-fsm">stateful-fsm</a></li><li class="ns-var-link"><a href="pallet.algo.fsm.stateful-fsm.html#var-with-history">with-history</a></li><li class="ns-var-link"><a href="pallet.algo.fsm.stateful-fsm.html#var-with-transition-timeout">with-transition-timeout</a></li>
+        </ul>
+      </div>
+    </navigation>
+    <article>
+      <div id="content" class="namespace-docs">
+        <h2 class="namespace-title">pallet.algo.fsm.stateful-fsm documentation</h2>
+        <div class="doc"><p>A finite state machine with managed state</p>
+</div>
+        <div class="ns-vars">
+          <div class="public">
+            <h3 id="var-stateful-fsm">stateful-fsm</h3>
+            <div class="usage">[{:keys [state-kw state-data], :as state} state-map fsm-features features]</div><div class="usage">[config]</div>
+            
+            
+            <div class="doc"><p>Returns a Finite State Machine where the state of the machine is managed.</p>
+
+<p>state-map
+: a map from state key to a set of valid transition states, or a map with
+  a :transitions key with a set of valid tranisition keys, and any keys required
+  by the features in use.</p>
+
+<p>features
+: a set of features that the FSM should support. The provided features
+  are :timeout and :history. Additional features may be added by passing
+  middleware functions. middleware functions are functions of the underling fsm,
+  that return a function taking a handler, which in return takes a function of
+  the state atom and a list of state update middleware functions. The function
+  returned by a state middleware function is called within the context of a
+  <code>swap!</code> operation on the old and new values of the fsm state.</p>
+
+<p>Returns a map with :transition, :valid-state? and valid-transition? keys,
+providing functions to change the state, test for a valid state and test for a
+valid transition, respectively. The transition function takes a function of
+state, that should return a new state.</p>
+
+<h2>Timeouts</h2>
+
+<p>Timeouts are enabled by the :timeout feature.</p>
+
+<p>If the state map returned by an event function contains a :timeout key, with a
+value specified as a map from unit to duration, then a :timeout event will be
+sent on elapse of the specified duration.</p>
+
+<h2>History</h2>
+
+<p>History is enabled by the :history feature, which records states on the
+state's :history key.</p>
+</div>
+          </div><div class="public">
+            <h3 id="var-with-history">with-history</h3>
+            <div class="usage">[state-map fsm]</div>
+            
+            
+            <div class="doc"><p>Middleware for adding transition history to the state.</p>
+</div>
+          </div><div class="public">
+            <h3 id="var-with-transition-timeout">with-transition-timeout</h3>
+            <div class="usage">[state-map fsm]</div>
+            
+            
+            <div class="doc"><p>Middleware for adding timeout's across every transition.</p>
+</div>
+          </div>
+        </div>
+      </div>
+    </article>
+  </body>
+
+</html>
