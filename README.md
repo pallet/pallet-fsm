@@ -183,6 +183,15 @@ implemented on top of `stateful-fsm`.
 
 [API documentation](http://palletops.com/pallet-fsm/)
 
+## Installation
+
+To use pallet-fsm, add the following to your `:dependencies` in
+`project.clj`:
+
+```clj
+[pallet-fsm "0.1.0"]
+```
+
 ## License
 
 Copyright © 2012 Hugo Duncan

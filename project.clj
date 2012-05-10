@@ -1,4 +1,4 @@
-(defproject pallet-fsm "0.1.0-SNAPSHOT"
+(defproject pallet-fsm "0.1.0"
   :dependencies [[org.clojure/clojure "1.2.1"]
                  [org.clojure/algo.monads "0.1.0"]
                  [org.clojure/tools.logging "0.2.3"]
