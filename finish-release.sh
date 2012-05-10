@@ -17,6 +17,8 @@ echo -n "commiting project.clj, release notes and readme.  enter to continue:" \
 && git commit -m "Updated project.clj, release notes and readme for $version" \
 && echo -n "Peform release.  enter to continue:" && read x \
 && lein2 test \
+&& lein2 with-profile 1.3 test \
+&& lein2 with-profile 1.4 test \
 && lein2 install \
 && git flow release finish $version \
 && scp target/pallet-fsm-${version}.jar target/pom.xml clojars:
