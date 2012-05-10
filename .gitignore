@@ -2,3 +2,5 @@ target
 .lein-failures
 .ritz-exception-filters
 checkouts
+lib
+doc
