@@ -67,11 +67,6 @@
                   (let [{:keys [timeout] :as new-state} (dissoc
                                                          (handler state)
                                                          :timeout-f)]
-                    (logging/debugf
-                     "%stimeout-f %s %s"
-                     (if-let [n (:fsm/name state-map)] (str n " - ") "")
-                     (:timeout-f state)
-                     (and (:timeout-f state) @(:timeout-f state)))
                     (when-let [old-timeout (and (:timeout-f state)
                                                 @(:timeout-f state))]
                       (logging/debugf
