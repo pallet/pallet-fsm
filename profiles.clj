@@ -6,7 +6,8 @@
  :marginalia {:pedantic :warn
               :dir "doc/0.1/annotated"}
  :release
- {:set-version
+ {:plugins [[lein-set-version "0.2.1"]]
+  :set-version
   {:updates [{:path "README.md"
               :no-snapshot true
               :search-regex #"pallet-fsm \"\d+\.\d+\.\d+\""}]}}}
