@@ -180,12 +180,16 @@
                 :open {:transitions #{:open :timed-out :re-locked}}}
                nil
                #{:timeout})
+          p (promise)
+          q (promise)
           state-map {:locked {:event-fn locked-no-timeout
                               :state-fn (fn [_] (swap! locked-counter inc))}
                      :open {:event-fn open
-                            :state-fn (fn [_] (swap! open-counter inc))}
-                     :relock {:event-fn (fn [state _ _] state)
-                              :state-fn (fn [_])}}
+                            :state-fn (fn [_]
+                                        (when (= 1 (swap! open-counter inc))
+                                          (deliver q nil)))}
+                     :re-locked {:event-fn (fn [state _ _] state)
+                                 :state-fn (fn [_] (deliver p nil))}}
           {:keys [event state reset] :as em} (event-machine fsm state-map nil)
           eml (event-machine-loop-fn state-map #{:re-locked})
           thread (Thread. #(eml em))]
@@ -195,6 +199,8 @@
       (event :button 3)
       (event :re-lock nil)
       (.join thread)
+      @p
+      @q
       (is (= :re-locked (:state-kw (state))))
       (is (pos? @locked-counter))
       (is (pos? @open-counter)))))

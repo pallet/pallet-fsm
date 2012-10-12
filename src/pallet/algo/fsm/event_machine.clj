@@ -112,18 +112,18 @@ the current state of an event-machine, until a terminal-state is reached."
   (fn event-machine-loop [{:keys [state] :as event-machine}]
     (loop [in-state (state)]
       (let [{:keys [state-kw state-data]} in-state]
-        (if (terminal-state? state-kw)
-          in-state
-          (let [state-fn (get-in state-map [state-kw :state-fn])]
-            (when-not state-fn
-              (throw+
-               {:state in-state
-                :state-map state-map
-                :reason :no-state-fn}
-               "EM %sin state %s, but no :state-fn available"
-               (when-let [em-name (::name state-map)] (str em-name " "))
-               state-kw))
-            (state-fn in-state)
+        (let [state-fn (get-in state-map [state-kw :state-fn])]
+          (when-not state-fn
+            (throw+
+             {:state in-state
+              :state-map state-map
+              :reason :no-state-fn}
+             "EM %sin state %s, but no :state-fn available"
+             (when-let [em-name (::name state-map)] (str em-name " "))
+             state-kw))
+          (state-fn in-state)
+          (if (terminal-state? state-kw)
+            in-state
             (recur (state))))))))
 
 ;;; ## Convenience
