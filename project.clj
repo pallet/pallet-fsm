@@ -5,6 +5,4 @@
                  [pallet-thread "0.1.0"]
                  [slingshot "0.10.2"]]
   :warn-on-reflection true
-  :profiles {:dev {:dependencies [[codox-md "0.1.0"] [codox "0.6.0"]]}}
-  :codox {:writer codox-md.writer/write-docs
-          :output-dir "doc/0.1"})
+  :profiles {:dev {:dependencies [[ch.qos.logback/logback-classic "1.0.0"]]}})
