@@ -21,12 +21,14 @@
   [state-map {:keys [transition] :as fsm}]
   (let [fsm-name (if-let [n (:fsm/name state-map)] (str n " - ") "")]
     (fn [event data]
-      (transition
-       #(do
-          (logging/debugf "%sin state %s fire %s" fsm-name (:state-kw %) event)
-          (logging/tracef "in state %s event data %s" (:state-kw %) data)
-          ((get-in state-map [(:state-kw %) :event-fn] fsm-invalid-state)
-           % event data))))))
+      (locking transition
+        (transition
+         #(do
+            (logging/debugf
+             "%sin state %s fire %s" fsm-name (:state-kw %) event)
+            (logging/tracef "in state %s event data %s" (:state-kw %) data)
+            ((get-in state-map [(:state-kw %) :event-fn] fsm-invalid-state)
+             % event data)))))))
 
 ;;; ## Event functions
 (defmulti fire-event-fn
