@@ -72,6 +72,13 @@
       (is (= {:state-kw :locked}
              (transition {:state-kw :open} {:state-kw :locked})))))
 
+  (testing "with transition locking"
+    (let [{:keys [transition valid-state? valid-transition?] :as sm}
+          (fsm {:locked {:transitions #{:open}}
+                :open {:transitions #{:locked}}}
+               #{:lock-transition})]
+      (is (= :open (transition :locked :open)))
+      (is (= :locked (transition :open :locked)))))
   (testing "with transition logger"
     (let [{:keys [transition valid-state? valid-transition?] :as sm}
           (fsm {:locked {:transitions #{:open}}
