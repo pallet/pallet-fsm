@@ -124,13 +124,22 @@
   {:on-enter-exit with-enter-exit})
 
 (defn- transition-fn [features state-map]
-  (let [fs (->> (concat [transition-to-state-fn] features)
+  (let [lock-transition-feature? #(= :lock-transition %)
+        lock? (some lock-transition-feature? features)
+        fs (->> (concat [transition-to-state-fn]
+                        (remove lock-transition-feature? features))
                 (map #(builtin-middleware %1 %1))
                 (map #(% state-map)))]
-    (fn [old-state new-state]
-      (doseq [f fs]
-        (f old-state new-state))
-      new-state)))
+    (if lock?
+      (fn [old-state new-state]
+        (locking (::lock state-map)
+          (doseq [f fs]
+            (f old-state new-state)))
+        new-state)
+      (fn [old-state new-state]
+        (doseq [f fs]
+          (f old-state new-state))
+        new-state))))
 
 ;;; ## FSM
 
@@ -176,15 +185,20 @@ will be called as appropriate by the :transition function."
            (into {} (map
                      (fn [[k v :as entry]]
                        (cond
-                         (and (keyword? k) (= "fsm" (namespace k))) entry
-                         (map? v) entry
-                         :else [k {:transitions v}]))
-                     state-map))]
-       {:transition (transition-fn (set features) state-map)
+                        (and (keyword? k) (= "fsm" (namespace k))) entry
+                        (map? v) entry
+                        :else [k {:transitions v}]))
+                     state-map))
+           lock-object (when (some #(= :lock-transition %) features)
+                         (Object.))]
+       {:transition (transition-fn
+                     (set features)
+                     (assoc state-map ::lock lock-object))
         :valid-state? (valid-state?-fn state-map)
         :valid-transition? (valid-transition?-fn state-map)
         ::features features
-        :state-identity (state-identity state-map)}))
+        :state-identity (state-identity state-map)
+        ::lock lock-object}))
   ([config]
      (fsm
       (dissoc config

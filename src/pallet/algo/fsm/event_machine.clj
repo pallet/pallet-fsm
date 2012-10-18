@@ -19,16 +19,24 @@
 (defn- call-event-fn
   "A function that calls the event function for the state."
   [state-map {:keys [transition] :as fsm}]
-  (let [fsm-name (if-let [n (:fsm/name state-map)] (str n " - ") "")]
+  (let [lock-object (-> fsm :fsm :pallet.algo.fsm.fsm/lock)
+        fsm-name (if-let [n (:fsm/name state-map)] (str n " - ") "")]
+    (logging/debugf
+     "fsm %s is %susing locking" fsm-name (if lock-object "" "not "))
     (fn [event data]
-      (locking transition
-        (transition
-         #(do
-            (logging/debugf
-             "%sin state %s fire %s" fsm-name (:state-kw %) event)
-            (logging/tracef "in state %s event data %s" (:state-kw %) data)
-            ((get-in state-map [(:state-kw %) :event-fn] fsm-invalid-state)
-             % event data)))))))
+      (let [f #(do
+                 (logging/debugf
+                  "%sin state %s fire %s" fsm-name (:state-kw %) event)
+                 (logging/tracef
+                  "in state %s event data %s" (:state-kw %) data)
+                 ((get-in
+                   state-map [(:state-kw %) :event-fn] fsm-invalid-state)
+                  % event data))]
+        (if lock-object
+          (locking lock-object
+            (logging/debugf "Locking transition")
+            (transition f))
+          (transition f))))))
 
 ;;; ## Event functions
 (defmulti fire-event-fn
@@ -74,7 +82,8 @@ and user data.  Functions should return the new state as a map with keys
                         (select-keys
                          fsm
                          [:reset :state :transition
-                          :valid-state? :valid-transition?])
+                          :valid-state? :valid-transition?
+                          :pallet.algo.fsm.fsm/lock])
                         {:event fire})]
            ((:reset fsm) (assoc ((:state fsm)) :fsm fsm :em machine))
            machine))))

@@ -22,13 +22,20 @@
 (defn- base-transition
   "Final handler for transitions."
   [{:keys [transition] :as fsm}]
-  (fn base-transition [state update-middleware]
-    {:pre [(instance? clojure.lang.Atom state)]}
-    (let [update-fn (reduce #(%2 %1) update-middleware)
-          [old-state new-state]
-          (swap!! state update-fn)]
-      (transition old-state new-state)
-      new-state)))
+  (if-let [lock-object (-> fsm :fsm :pallet.algo.fsm.fsm/lock)]
+    (fn base-transition [state update-middleware]
+      {:pre [(instance? clojure.lang.Atom state)]}
+      (let [update-fn (reduce #(%2 %1) update-middleware)]
+        (locking lock-object
+          (let [[old-state new-state] (swap!! state update-fn)]
+            (transition old-state new-state)
+            new-state))))
+    (fn base-transition [state update-middleware]
+      {:pre [(instance? clojure.lang.Atom state)]}
+      (let [update-fn (reduce #(%2 %1) update-middleware)
+            [old-state new-state] (swap!! state update-fn)]
+        (transition old-state new-state)
+        new-state))))
 
 ;;; ## Transitions with timeouts
 (defonce
@@ -174,7 +181,8 @@ state's :history key."
         :state (fn [] (dissoc @state :timeout-f))
         :reset (fn [{:keys [status state-kw state-data]
                      :as new-state}]
-                 (swap! state merge new-state))}))
+                 (swap! state merge new-state))
+        :fsm fsm}))
   ([config]
      (stateful-fsm
       (:fsm/inital-state config)
