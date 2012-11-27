@@ -95,10 +95,13 @@
       (is (= :open (transition :locked :open)))
       (is (= :locked (transition :open :locked)))))
   (testing "with transition observer"
-    (let [{:keys [transition valid-state? valid-transition?] :as sm}
+    (let [a (atom [])
+          {:keys [transition valid-state? valid-transition?] :as sm}
           (fsm {:fsm/name "fred"
                 :locked {:transitions #{:open}}
                 :open {:transitions #{:locked}}}
-               #{(with-transition-observer (fn [old-state new-state]))})]
+               #{(with-transition-observer
+                   (fn [old new] (swap! a concat [old new])))})]
       (is (= :open (transition :locked :open)))
-      (is (= :locked (transition :open :locked))))))
+      (is (= :locked (transition :open :locked)))
+      (is (= [:locked :open :open :locked] @a)))))
