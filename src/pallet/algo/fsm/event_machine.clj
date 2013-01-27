@@ -1,20 +1,19 @@
 (ns pallet.algo.fsm.event-machine
   "An event machine dispatches events to updates in an underlying finite state
   machine."
-  (:use
-   [pallet.algo.fsm.stateful-fsm :only [stateful-fsm]]
-   [slingshot.slingshot :only [throw+]])
   (:require
+   [pallet.algo.fsm.stateful-fsm :refer [stateful-fsm]]
    [clojure.tools.logging :as logging]))
 
 ;;; ## Implementation functions
 (defn- fsm-invalid-state
   [state event event-data]
-  (throw+
-   {:state state
-    :event event
-    :event-data event-data}
-   "No event function for: state %s, event %s" (:state-kw state) event))
+  (throw
+   (ex-info
+    (format "No event function for: state %s, event %s" (:state-kw state) event)
+    {:state state
+     :event event
+     :event-data event-data})))
 
 (defn- call-event-fn
   "A function that calls the event function for the state."
@@ -104,13 +103,14 @@ current state of an event-machine."
         in-state
         (let [state-fn (get-in state-map [state-kw :state-fn])]
           (when-not state-fn
-            (throw+
-             {:state in-state
-              :state-map state-map
-              :reason :no-state-fn}
-             "EM %sin state %s, but no :state-fn available"
-             (when-let [em-name (::name state-map)] (str em-name " "))
-             state-kw))
+            (throw
+             (ex-info
+              (format "EM %sin state %s, but no :state-fn available"
+                      (when-let [em-name (::name state-map)] (str em-name " "))
+                      state-kw)
+              {:state in-state
+               :state-map state-map
+               :reason :no-state-fn})))
           (state-fn in-state)
           nil)))))
 
@@ -123,13 +123,14 @@ the current state of an event-machine, until a terminal-state is reached."
       (let [{:keys [state-kw state-data]} in-state]
         (let [state-fn (get-in state-map [state-kw :state-fn])]
           (when-not state-fn
-            (throw+
-             {:state in-state
-              :state-map state-map
-              :reason :no-state-fn}
-             "EM %sin state %s, but no :state-fn available"
-             (when-let [em-name (::name state-map)] (str em-name " "))
-             state-kw))
+            (throw
+             (ex-info
+              (format "EM %sin state %s, but no :state-fn available"
+                      (when-let [em-name (::name state-map)] (str em-name " "))
+                      state-kw)
+              {:state in-state
+               :state-map state-map
+               :reason :no-state-fn})))
           (state-fn in-state)
           (if (terminal-state? state-kw)
             in-state
