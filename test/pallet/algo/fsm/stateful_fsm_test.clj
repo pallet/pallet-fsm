@@ -1,7 +1,8 @@
 (ns pallet.algo.fsm.stateful-fsm-test
   (:use
    clojure.test
-   pallet.algo.fsm.stateful-fsm))
+   pallet.algo.fsm.stateful-fsm
+   [pallet.algo.fsm.fsm :only [with-transition-observer]]))
 
 (deftest fsm-test
   (testing "no features"
@@ -89,4 +90,23 @@
               :state-data {:so-far nil}
               :history [{:state-kw :locked :state-data {:code "1"}}]}
              (transition
-              #(assoc % :state-kw :open :state-data {:so-far nil})))))))
+              #(assoc % :state-kw :open :state-data {:so-far nil}))))))
+
+  (testing "observer"
+    (let [a (atom [])
+          {:keys [transition state reset] :as sm}
+          (stateful-fsm {:state-kw :locked :state-data {:code "1"}}
+                        {:locked {:transitions #{:locked :open}}
+                         :open {:transitions #{:locked}}}
+                        [(with-transition-observer
+                           (fn [old new] (swap! a concat [old new])))]
+                        nil)]
+      (is (= {:state-kw :locked :state-data {:code "1"}}
+             (state)))
+      (is (= {:state-kw :open
+              :state-data {:so-far nil}}
+             (transition
+              #(assoc % :state-kw :open :state-data {:so-far nil}))))
+      (is (= [{:state-kw :locked, :state-data {:code "1"}}
+              {:state-kw :open, :state-data {:so-far nil}}]
+             @a)))))

@@ -204,3 +204,8 @@ will be called as appropriate by the :transition function."
       (dissoc config
               :fsm/fsm-features :fsm/event-machine-features :fsm/inital-state)
       (:fsm/fsm-features config))))
+
+(defn with-fsm-feature
+  "Returns the `fsm-spec` with specified `feature` added to it."
+  [fsm-spec feature]
+  (update-in fsm-spec [:fsm/fsm-features] concat [feature]))
