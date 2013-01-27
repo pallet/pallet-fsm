@@ -1,4 +1,4 @@
-(defproject pallet-fsm "0.1.3-SNAPSHOT"
+(defproject pallet-fsm "0.1.3"
   :description "Finite state machine library"
   :url "https://github.com/pallet/pallet-fsm"
   :license {:name "Eclipse Public License"
