@@ -1,5 +1,14 @@
 # Release Notes
 
+## 0.1.3
+
+- Add with-fsm-feature
+  This function allows adding a feature to an existing fsm specification map.
+
+- Check observer called in fsm-test
+
+- Add a transition-observer test to stateful-fsm
+
 ## 0.1.2
 
 - Add :lock-transition feature to fsm

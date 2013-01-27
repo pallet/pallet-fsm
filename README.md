@@ -189,7 +189,7 @@ To use pallet-fsm, add the following to your `:dependencies` in
 `project.clj`:
 
 ```clj
-[pallet-fsm "0.1.2"]
+[pallet-fsm "0.1.3"]
 ```
 
 ## License
