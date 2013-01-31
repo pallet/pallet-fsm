@@ -1,5 +1,10 @@
 # Release Notes
 
+## 0.2.0
+
+- Require clojure 1.4.0
+  Drops use of slingshot.
+
 ## 0.1.3
 
 - Add with-fsm-feature
