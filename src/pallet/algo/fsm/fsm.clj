@@ -1,7 +1,5 @@
 (ns pallet.algo.fsm.fsm
   "A finite state machine with externally maintained state."
-  (:use
-   [slingshot.slingshot :only [throw+]])
   (:require
    [clojure.tools.logging :as logging]))
 
@@ -31,11 +29,12 @@
   (fn
     [state]
     (when (= ::nil (get state-map state ::nil))
-      (throw+
-       {:reason :invalid-state
-        :state state
-        :state-map state-map}
-       "Invalid state %s" state state-map))))
+      (throw
+       (ex-info
+        (format "Invalid state %s" state state-map)
+        {:reason :invalid-state
+         :state state
+         :state-map state-map})))))
 
 (defn- validate-transition
   [state-map]
@@ -44,15 +43,16 @@
       (let [v? (get-in state-map [from-state :transitions])]
         (when (or (nil? v?)
                   (not (v? to-state)))
-          (throw+
-           {:reason :invalid-transition
-            :from-state from-state
-            :to-state to-state
-            :state-map state-map
-            :fsm-name fsm-name}
-           "Invalid transition%s: from %s to %s for %s"
-           (if fsm-name (str " " fsm-name) "")
-           from-state to-state state-map))))))
+          (throw
+           (ex-info
+            (format "Invalid transition%s: from %s to %s for %s"
+                    (if fsm-name (str " " fsm-name) "")
+                    from-state to-state state-map)
+            {:reason :invalid-transition
+             :from-state from-state
+             :to-state to-state
+             :state-map state-map
+             :fsm-name fsm-name})))))))
 
 ;;; ## Basic transition
 (defn- transition-to-state-fn

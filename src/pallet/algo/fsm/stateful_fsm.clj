@@ -1,11 +1,9 @@
 (ns pallet.algo.fsm.stateful-fsm
   "A finite state machine with managed state"
-  (:use
-   [pallet.algo.fsm.fsm :only [fsm]]
-   [pallet.algo.fsm.fsm-utils :only [swap!!]]
-   [pallet.thread.executor :only [executor execute-after]]
-   [slingshot.slingshot :only [throw+]])
   (:require
+   [pallet.algo.fsm.fsm :refer [fsm]]
+   [pallet.algo.fsm.fsm-utils :refer [swap!!]]
+   [pallet.thread.executor :refer [executor execute-after]]
    [clojure.tools.logging :as logging]))
 
 ;;; ## Base FSM transitions

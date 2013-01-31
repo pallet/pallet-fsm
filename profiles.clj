@@ -1,4 +1,6 @@
-{:codox {:codox {:writer codox-md.writer/write-docs
+{:dev {:dependencies [[ch.qos.logback/logback-classic "1.0.9"]]}
+ :clojure-1.5.0 {:dependencies [[org.clojure/clojure "1.5.0-RC4"]]}
+ :codox {:codox {:writer codox-md.writer/write-docs
                  :output-dir "doc/0.1"}
          :dependencies [[codox-md "0.1.0"]
                         [codox/codox.core "0.6.1"]]
